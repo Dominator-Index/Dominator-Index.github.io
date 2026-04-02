@@ -1,0 +1,4 @@
+User-agent: *
+Disallow:
+
+Sitemap: https://dominator-index.github.io/sitemap.xml
