@@ -2,24 +2,33 @@
 layout: about
 title: about
 permalink: /
-subtitle: <a href='#'>Affiliations</a>. Address. Contacts. Motto. Etc.
+subtitle: >
+  Junior Undergraduate, <a href="https://eee.sustech.edu.cn/">Dept. of Electrical and Electronic Engineering</a>, <a href="https://www.sustech.edu.cn/">Southern University of Science and Technology (SUSTech)</a>
 
 profile:
   align: right
   image: prof_pic.jpg
-  image_circular: false # crops the image to make it circular
+  image_circular: false
   more_info: >
-    <p>555 your office number</p>
-    <p>123 your address street</p>
-    <p>Your City, State 12345</p>
+    <p>oyzl2004@gmail.com</p>
+    <p>Zhuoli.Ouyang@dartmouth.edu</p>
+    <p>Shenzhen, China</p>
 
-news: true # includes a list of news items
-selected_papers: true # includes a list of papers marked as "selected={true}"
-social: true # includes social icons at the bottom of the page
+news: true
+selected_papers: true
+social: true
 ---
 
-Write your biography here. Tell the world about yourself. Link to your favorite [subreddit](http://reddit.com). You can put a picture in, too. The code is already in, just name your picture `prof_pic.jpg` and put it in the `img/` folder.
+I am a third-year undergraduate student at [SUSTech](https://www.sustech.edu.cn/), majoring in Electrical and Electronic Engineering. I started in the [Department of Mathematics](https://math.sustech.edu.cn/) (Fields Elite Honor Class) before switching to EEE, which gave me a strong foundation in graduate-level mathematics — including differential geometry, topology, algebra, analysis, and theoretical physics.
 
-Put your address / P.O. box / other info right below your picture. You can also disable any of these elements by editing `profile` property of the YAML header of your `_pages/about.md`. Edit `_bibliography/papers.bib` and Jekyll will render your [publications page](/al-folio/publications/) automatically.
+Currently, I am a research intern at [Dartmouth College](https://home.dartmouth.edu/) advised by [Prof. Yaoqing Yang](https://sites.google.com/site/yangyaoqingcmu/), working on optimization algorithms and learning theory. I also collaborate with [AI for Scientific Simulation and Discovery Lab](https://www.westlake.edu.cn/) at Westlake University, [Shanghai AI Laboratory](https://www.shlab.org.cn/), [HKUST (GZ)](https://www.hkust-gz.edu.cn/), and [CAIRI AI Lab](https://changxichi.github.io/) at Westlake University.
 
-Link to your social media connections, too. This theme is set up to use [Font Awesome icons](https://fontawesome.com/) and [Academicons](https://jpswalsh.github.io/academicons/), like the ones below. Add your Facebook, Twitter, LinkedIn, Google Scholar, or just disable all of them.
+**Research Interests:** optimization theory, generative models, reinforcement learning, efficient AI, embodied AI.
+
+---
+
+**Awards & Honors**
+- ALT 2026 **Best Student Paper Award**
+- ISIT 2026 **Strong Accept**
+- Fields Elite Honor Class (Top 1%), SUSTech
+- Rank **4/46** in EEE, **Top 7%** overall (GPA 3.94/4.00 last year)
