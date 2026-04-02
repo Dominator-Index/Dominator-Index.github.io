@@ -21,9 +21,11 @@ social: true
 
 I am a third-year undergraduate student at [SUSTech](https://www.sustech.edu.cn/), majoring in Electrical and Electronic Engineering. I started in the [Department of Mathematics](https://math.sustech.edu.cn/) (Fields Elite Honor Class) before switching to EEE, which gave me a strong foundation in mathematics — including differential geometry, topology, algebra, analysis, and learning theory.
 
-Currently, I am a research intern at [Dartmouth College](https://home.dartmouth.edu/) advised by [Prof. Yaoqing Yang](https://sites.google.com/site/yangyaoqingcmu/), working on optimization algorithms and learning theory. I also collaborate with [AI for Scientific Simulation and Discovery Lab](https://www.westlake.edu.cn/) at Westlake University, [Shanghai AI Laboratory](https://www.shlab.org.cn/), [HKUST (GZ)](https://www.hkust-gz.edu.cn/), and [CAIRI AI Lab](https://changxichi.github.io/) at Westlake University.
+I have research experience across optimization, generative modeling, and reinforcement learning, with collaborations at Westlake University, Shanghai AI Laboratory, and HKUST (GZ).
 
 **Research Interests:** optimization theory, generative models, reinforcement learning, efficient AI, embodied AI.
+
+I am currently **seeking summer research internships and PhD positions (2026 intake)**. Feel free to reach out!
 
 ---
 
