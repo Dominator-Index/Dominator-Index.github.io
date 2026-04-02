@@ -21,7 +21,7 @@ social: true
 
 I am a third-year undergraduate student at [SUSTech](https://www.sustech.edu.cn/), majoring in Electrical and Electronic Engineering. I started in the [Department of Mathematics](https://math.sustech.edu.cn/) (Fields Elite Honor Class) before switching to EEE, which gave me a strong foundation in mathematics — including differential geometry, topology, algebra, analysis, and learning theory.
 
-I have research experience across optimization, generative modeling, and reinforcement learning, with collaborations at Westlake University, Shanghai AI Laboratory, and HKUST (GZ).
+I have research experience across optimization, generative modeling, and reinforcement learning, with collaborations at [Dartmouth College](https://home.dartmouth.edu/), [Westlake University](https://www.westlake.edu.cn/), [Shanghai AI Laboratory](https://www.shlab.org.cn/), and [HKUST (GZ)](https://www.hkust-gz.edu.cn/).
 
 **Research Interests:** optimization theory, generative models, reinforcement learning, efficient AI, embodied AI.
 
