@@ -30,8 +30,8 @@ I am currently **seeking summer research internships and PhD positions (2026 int
 ---
 
 **Awards & Honors**
-- ALT 2026 **Best Student Paper Award**
-- ISIT 2026 **Strong Accept**
-- DATE 2026 **Oral Paper**
-- Fields Elite Honor Class (Top 1%), SUSTech
-- Rank **4/46** in EEE, **Top 7%** overall (GPA 3.94/4.00 last year)
+- ALT 2026 <span style="color:#c0392b; font-weight:bold;">Best Student Paper Award</span>
+- ISIT 2026 <span style="color:#c0392b; font-weight:bold;">Strong Accept</span>
+- DATE 2026 <span style="color:#c0392b; font-weight:bold;">Oral Paper</span>
+- <span style="color:#b8860b; font-weight:bold;">Fields Elite Honor Class</span> (Top 1%), SUSTech
+- Rank <span style="color:#b8860b; font-weight:bold;">4/46</span> in EEE, <span style="color:#b8860b; font-weight:bold;">Top 7%</span> overall (GPA <span style="color:#b8860b; font-weight:bold;">3.94</span>/4.00 last year)

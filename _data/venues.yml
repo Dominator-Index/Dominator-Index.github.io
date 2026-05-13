@@ -1,3 +1,27 @@
+"ICML":
+  color: "#1565C0"
+
+"ICLR":
+  color: "#00695C"
+
+"NeurIPS":
+  color: "#6A1B9A"
+
+"ALT":
+  color: "#BF360C"
+
+"ISIT":
+  color: "#2E7D32"
+
+"DATE":
+  color: "#00838F"
+
+"AAAI":
+  color: "#283593"
+
+"TCAD":
+  color: "#37474F"
+
 "AJP":
   url: https://aapt.scitation.org/journal/ajp
   color: "#00369f"

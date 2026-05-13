@@ -690,6 +690,10 @@ footer.sticky-bottom {
 
     li {
       margin-bottom: 1rem;
+      padding: 0.8rem 1rem;
+      border-radius: 8px;
+      background-color: rgba(181, 9, 172, 0.04);
+      border-left: 3px solid var(--global-theme-color);
 
       .preview {
       }
@@ -719,6 +723,13 @@ footer.sticky-bottom {
 
       .title {
         font-weight: bolder;
+      }
+
+      .periodical {
+        em {
+          color: #1565C0;
+          font-style: italic;
+        }
       }
 
       .author {
