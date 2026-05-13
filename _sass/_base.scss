@@ -692,8 +692,8 @@ footer.sticky-bottom {
       margin-bottom: 1rem;
       padding: 0.8rem 1rem;
       border-radius: 8px;
-      background-color: rgba(181, 9, 172, 0.04);
-      border-left: 3px solid var(--global-theme-color);
+      background-color: rgba(21, 101, 192, 0.05);
+      border-left: 3px solid #1565C0;
 
       .preview {
       }
@@ -727,7 +727,7 @@ footer.sticky-bottom {
 
       .periodical {
         em {
-          color: #1565C0;
+          color: #00695C;
           font-style: italic;
         }
       }
