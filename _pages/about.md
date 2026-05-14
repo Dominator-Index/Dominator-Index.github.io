@@ -11,8 +11,8 @@ profile:
   image_circular: false
   more_info: >
     <p>oyzl2004@gmail.com</p>
-    <p>Zhuoli.Ouyang@dartmouth.edu</p>
     <p>ouyangzl2023@mail.sustech.edu.cn</p>
+    <p>Zhuoli.Ouyang@dartmouth.edu</p>
 
 news: true
 selected_papers: true
