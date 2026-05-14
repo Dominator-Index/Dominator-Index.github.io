@@ -26,7 +26,7 @@ I am a third-year undergraduate at [SUSTech](https://www.sustech.edu.cn/), major
 
 My research spans **optimization theory**, **generative modeling**, and **reinforcement learning**, always driven by the conviction that the most powerful AI systems will stand on deep mathematical foundations.
 
-I am currently **seeking summer research internships and PhD positions (2026 intake)**. Feel free to reach out!
+I am currently **seeking PhD positions (2027 Fall)**. Feel free to reach out!
 
 ---
 
