@@ -75,19 +75,19 @@
 }
 
 html[data-theme="dark"] {
-  --global-bg-color: #{$grey-color-dark};
-  --global-code-bg-color: #{$code-bg-color-dark};
-  --global-text-color: #{$grey-color-light};
-  --global-text-color-light: #{$grey-color};
-  --global-theme-color: #{$cyan-color};
-  --global-hover-color: #{$cyan-color};
+  --global-bg-color: #0b0f19;
+  --global-code-bg-color: #131c2e;
+  --global-text-color: #d0dce8;
+  --global-text-color-light: #7a8899;
+  --global-theme-color: #00c8ff;
+  --global-hover-color: #00c8ff;
   --global-hover-text-color: #{$white-color};
-  --global-footer-bg-color: #{$grey-color-light};
-  --global-footer-text-color: #{$grey-color-dark};
-  --global-footer-link-color: #{$black-color};
-  --global-distill-app-color: #{$grey-color-light};
-  --global-divider-color: #424246;
-  --global-card-bg-color: #{$grey-900};
+  --global-footer-bg-color: #060a12;
+  --global-footer-text-color: #7a8899;
+  --global-footer-link-color: #00c8ff;
+  --global-distill-app-color: #7a8899;
+  --global-divider-color: rgba(0, 200, 255, 0.12);
+  --global-card-bg-color: #111827;
   --global-back-to-top-bg-color: rgba(
     #{color.channel($white-color, "red", $space: rgb)},
     #{color.channel($white-color, "green", $space: rgb)},

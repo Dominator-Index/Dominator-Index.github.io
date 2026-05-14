@@ -1315,3 +1315,21 @@ ninja-keys::part(ninja-input-wrapper) {
   background-color: var(--global-theme-color);
   color: var(--global-text-color);
 }
+
+// Dark mode overrides for publication cards
+html[data-theme="dark"] {
+  .publications {
+    ol.bibliography {
+      li {
+        background-color: #111827;
+        border-left: 3px solid #00c8ff;
+
+        .periodical {
+          em {
+            color: #4facfe;
+          }
+        }
+      }
+    }
+  }
+}
