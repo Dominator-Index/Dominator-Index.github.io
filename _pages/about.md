@@ -7,7 +7,7 @@ subtitle: >
 
 profile:
   align: right
-  image: prof_pic.jpg
+  image: prof_pic_17gon.svg
   image_circular: false
   more_info: >
     <p>oyzl2004@gmail.com</p>
