@@ -24,7 +24,7 @@ I am a third-year undergraduate at [SUSTech](https://www.sustech.edu.cn/), major
 
 **I am dedicated to revitalizing centuries of profound mathematical brilliance within the AI era.** Rather than chasing empirical efficiency alone, my mission is to bridge the legacy of classical theory with the frontiers of modern intelligence — grounding AI in rigorous, enduring paradigms and opening new theoretical insights.
 
-My research spans **optimization theory**, **generative modeling**, and **reinforcement learning**, always driven by the conviction that the most powerful AI systems will stand on deep mathematical foundations.
+I believe the most powerful AI systems will be those that stand on the shoulders of centuries of profound theoretical legacy. My approach centers on the **rigorous rethinking of mathematical structures** — prioritizing clarity and depth over sheer scale — and translating abstract mathematical elegance into actionable frameworks that offer both transparency and enduring performance.
 
 I am currently **seeking PhD positions (2027 Fall)**. Feel free to reach out!
 
