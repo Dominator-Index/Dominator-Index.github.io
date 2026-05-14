@@ -20,11 +20,11 @@ social: true
 qr_code: qr_website.png
 ---
 
-I am a third-year undergraduate student at [SUSTech](https://www.sustech.edu.cn/), majoring in Electrical and Electronic Engineering. I started in the [Department of Mathematics](https://math.sustech.edu.cn/) (Fields Elite Honor Class) before switching to EEE, which gave me a strong foundation in mathematics — including differential geometry, topology, algebra, analysis, and learning theory.
+I am a third-year undergraduate at [SUSTech](https://www.sustech.edu.cn/), majoring in Electrical and Electronic Engineering. I began in the **Fields Elite Honor Class** at the [Department of Mathematics](https://math.sustech.edu.cn/), where early immersion in rigorous proof and foundational theory fundamentally shaped my research philosophy.
 
-I have research experience across optimization, generative modeling, and reinforcement learning.
+**I am dedicated to revitalizing centuries of profound mathematical brilliance within the AI era.** Rather than chasing empirical efficiency alone, my mission is to bridge the legacy of classical theory with the frontiers of modern intelligence — grounding AI in rigorous, enduring paradigms and opening new theoretical insights.
 
-**Research Interests:** optimization theory, generative models, reinforcement learning, efficient AI, embodied AI.
+My research spans **optimization theory**, **generative modeling**, and **reinforcement learning**, always driven by the conviction that the most powerful AI systems will stand on deep mathematical foundations.
 
 I am currently **seeking summer research internships and PhD positions (2026 intake)**. Feel free to reach out!
 
