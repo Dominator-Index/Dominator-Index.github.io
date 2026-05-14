@@ -15,7 +15,7 @@ footer_text: >
   Hosted by <a href="https://pages.github.com/" target="_blank">GitHub Pages</a>.
 keywords: machine learning, optimization, generative models, reinforcement learning
 lang: en
-icon: ⚛️
+icon: favicon.svg
 
 url: https://dominator-index.github.io
 baseurl: # leave blank
