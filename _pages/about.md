@@ -13,7 +13,6 @@ profile:
     <p>oyzl2004@gmail.com</p>
     <p>Zhuoli.Ouyang@dartmouth.edu</p>
     <p>ouyangzl2023@mail.sustech.edu.cn</p>
-    <p>Shenzhen, China</p>
 
 news: true
 selected_papers: true
