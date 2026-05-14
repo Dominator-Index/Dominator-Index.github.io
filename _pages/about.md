@@ -13,6 +13,10 @@ profile:
     <p>oyzl2004@gmail.com</p>
     <p>Zhuoli.Ouyang@dartmouth.edu</p>
     <p>Shenzhen, China</p>
+    <div style="text-align:center; margin-top:10px;">
+      <img src="/assets/img/qr_website.png" alt="Personal Website QR" style="width:120px; height:120px; border-radius:8px;"/>
+      <p style="font-size:11px; color:#888; margin-top:4px;">Scan to visit</p>
+    </div>
 
 news: true
 selected_papers: true
