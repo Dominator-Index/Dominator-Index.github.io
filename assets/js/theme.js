@@ -1,5 +1,14 @@
 // Has to be in the head tag, otherwise a flicker effect will occur.
 
+// Force dark mode as the new default. Bump this string to reset all users to dark.
+(function () {
+  var themeVersion = "v2-dark";
+  if (localStorage.getItem("theme_version") !== themeVersion) {
+    localStorage.setItem("theme", "dark");
+    localStorage.setItem("theme_version", themeVersion);
+  }
+})();
+
 // Toggle through light, dark, and system theme settings.
 let toggleThemeSetting = () => {
   let themeSetting = determineThemeSetting();
