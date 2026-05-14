@@ -133,7 +133,7 @@ collections:
 announcements:
   enabled: true
   scrollable: true
-  limit: 5
+  limit: 7
 
 latest_posts:
   enabled: false
