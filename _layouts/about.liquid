@@ -79,6 +79,13 @@ layout: default
         <div class="contact-icons">{% include social.liquid %}</div>
 
         <div class="contact-note">{{ site.contact_note }}</div>
+
+        {% if page.qr_code %}
+          <div style="text-align:center; margin-top:1.4rem;">
+            <img src="/assets/img/{{ page.qr_code }}" alt="Scan to visit" style="width:96px; height:96px; border-radius:10px; border:1px solid rgba(0,200,255,0.25); opacity:0.85;"/>
+            <p style="font-size:10px; letter-spacing:0.12em; margin-top:6px; opacity:0.5; text-transform:uppercase;">Scan to visit</p>
+          </div>
+        {% endif %}
       </div>
     {% endif %}
 

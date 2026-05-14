@@ -12,15 +12,13 @@ profile:
   more_info: >
     <p>oyzl2004@gmail.com</p>
     <p>Zhuoli.Ouyang@dartmouth.edu</p>
+    <p>ouyangzl2023@mail.sustech.edu.cn</p>
     <p>Shenzhen, China</p>
-    <div style="text-align:center; margin-top:10px;">
-      <img src="/assets/img/qr_website.png" alt="Personal Website QR" style="width:120px; height:120px; border-radius:8px;"/>
-      <p style="font-size:11px; color:#888; margin-top:4px;">Scan to visit</p>
-    </div>
 
 news: true
 selected_papers: true
 social: true
+qr_code: qr_website.png
 ---
 
 I am a third-year undergraduate student at [SUSTech](https://www.sustech.edu.cn/), majoring in Electrical and Electronic Engineering. I started in the [Department of Mathematics](https://math.sustech.edu.cn/) (Fields Elite Honor Class) before switching to EEE, which gave me a strong foundation in mathematics — including differential geometry, topology, algebra, analysis, and learning theory.
