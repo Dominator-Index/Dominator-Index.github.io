@@ -3,7 +3,7 @@ layout: page
 permalink: /repositories/
 title: repositories
 description: Code and project pages for my publications — RMNP (ICML 2026), Depth-Not-Data (ISIT 2026), and Suspicious Alignment of SGD (ALT 2026).
-nav: true
+nav: false
 nav_order: 4
 ---
 
