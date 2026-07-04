@@ -2,7 +2,7 @@
 layout: page
 permalink: /repositories/
 title: repositories
-description: Edit the `_data/repositories.yml` and change the `github_users` and `github_repos` lists to include your own GitHub profile and repositories.
+description: Code and project pages for my publications — RMNP (ICML 2026), Depth-Not-Data (ISIT 2026), and Suspicious Alignment of SGD (ALT 2026).
 nav: true
 nav_order: 4
 ---
