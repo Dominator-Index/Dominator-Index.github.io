@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 460" font-family="'JetBrains Mono','SFMono-Regular',Consolas,monospace">
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#00c8ff"/></marker></defs>
+<rect width="960" height="460" fill="#0b0f19"/>
+<text x="480.0" y="30" font-size="16.5" fill="#d0dce8" text-anchor="middle" font-weight="bold">Megatron's golden pair: Column-cut fc1 + Row-cut fc2 (TP = 2)</text>
+<text x="480.0" y="52" font-size="11.5" fill="#7a8899" text-anchor="middle" font-weight="normal">cyan = rank 0&#8217;s piece &#183; green = rank 1&#8217;s &#183; the GeLU in the middle needs NO communication</text>
+<rect x="50" y="120" width="70" height="90" rx="5" fill="#9085e9" opacity="0.9"/>
+<text x="85.0" y="169.0" font-size="11" fill="#0b0f19" text-anchor="middle" font-weight="bold">X</text>
+<text x="85.0" y="226" font-size="9.5" fill="#7a8899" text-anchor="middle" font-weight="normal">[B, H]  replicated</text>
+<line x1="128" y1="165" x2="168" y2="165" stroke="#00c8ff" stroke-width="4.800000000000001" opacity="0.22" stroke-linecap="round"/>
+<line x1="128" y1="165" x2="168" y2="165" stroke="#00c8ff" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="148" y="150" font-size="13" fill="#00c8ff" text-anchor="middle" font-weight="bold">f</text>
+<rect x="172" y="110" width="100" height="54.0" rx="4" fill="#0099c4" opacity="0.9"/>
+<rect x="172" y="166.0" width="100" height="54.0" rx="4" fill="#199e70" opacity="0.9"/>
+<text x="222" y="238" font-size="9.2" fill="#7a8899" text-anchor="middle" font-weight="normal">W1 [4H,H] col-parallel</text>
+<text x="222" y="252" font-size="9.2" fill="#7a8899" text-anchor="middle" font-weight="normal">split OUT dim: whole rows</text>
+<line x1="280" y1="165" x2="320" y2="165" stroke="#00c8ff" stroke-width="4.800000000000001" opacity="0.22" stroke-linecap="round"/>
+<line x1="280" y1="165" x2="320" y2="165" stroke="#00c8ff" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="324" y="110" width="70" height="50" rx="5" fill="#0099c4" opacity="0.95"/>
+<text x="359.0" y="139.0" font-size="11" fill="#0b0f19" text-anchor="middle" font-weight="bold">Y&#8320;</text>
+<rect x="324" y="170" width="70" height="50" rx="5" fill="#199e70" opacity="0.9"/>
+<text x="359.0" y="199.0" font-size="11" fill="#0b0f19" text-anchor="middle" font-weight="bold">Y&#8321;</text>
+<text x="359" y="238" font-size="9.2" fill="#7a8899" text-anchor="middle" font-weight="normal">Y = GeLU(XW1&#7488;)</text>
+<text x="359" y="252" font-size="9.2" fill="#c98500" text-anchor="middle" font-weight="normal">own half &#8212; LOCAL</text>
+<line x1="402" y1="165" x2="442" y2="165" stroke="#00c8ff" stroke-width="4.800000000000001" opacity="0.22" stroke-linecap="round"/>
+<line x1="402" y1="165" x2="442" y2="165" stroke="#00c8ff" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="446" y="110" width="49.0" height="110" rx="4" fill="#0099c4" opacity="0.9"/>
+<rect x="497.0" y="110" width="49.0" height="110" rx="4" fill="#199e70" opacity="0.9"/>
+<text x="496" y="238" font-size="9.2" fill="#7a8899" text-anchor="middle" font-weight="normal">W2 [H,4H] row-parallel</text>
+<text x="496" y="252" font-size="9.2" fill="#7a8899" text-anchor="middle" font-weight="normal">split IN dim = Y&#8217;s split</text>
+<line x1="554" y1="165" x2="594" y2="165" stroke="#00c8ff" stroke-width="4.800000000000001" opacity="0.22" stroke-linecap="round"/>
+<line x1="554" y1="165" x2="594" y2="165" stroke="#00c8ff" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="598" y="110" width="70" height="50" rx="5" fill="#0099c4" opacity="0.6"/>
+<text x="633.0" y="139.0" font-size="11" fill="#0b0f19" text-anchor="middle" font-weight="bold">Z&#8320;</text>
+<rect x="598" y="170" width="70" height="50" rx="5" fill="#199e70" opacity="0.6"/>
+<text x="633.0" y="199.0" font-size="11" fill="#0b0f19" text-anchor="middle" font-weight="bold">Z&#8321;</text>
+<text x="633" y="238" font-size="9.2" fill="#7a8899" text-anchor="middle" font-weight="normal">partial sums [B,H]</text>
+<text x="633" y="252" font-size="9.2" fill="#7a8899" text-anchor="middle" font-weight="normal">Z = Z&#8320;+Z&#8321;</text>
+<line x1="676" y1="165" x2="716" y2="165" stroke="#00c8ff" stroke-width="4.800000000000001" opacity="0.22" stroke-linecap="round"/>
+<line x1="676" y1="165" x2="716" y2="165" stroke="#00c8ff" stroke-width="1.6" marker-end="url(#arr)"/>
+<text x="696" y="150" font-size="13" fill="#00c8ff" text-anchor="middle" font-weight="bold">g</text>
+<rect x="720" y="110" width="120" height="110" rx="8" fill="none" stroke="#00c8ff" stroke-width="2"/>
+<text x="780" y="158" font-size="11.5" fill="#00c8ff" text-anchor="middle" font-weight="bold">all-reduce</text>
+<text x="780" y="176" font-size="9.5" fill="#d0dce8" text-anchor="middle" font-weight="normal">Z on every rank</text>
+<text x="780" y="192" font-size="9" fill="#7a8899" text-anchor="middle" font-weight="normal">(the ONLY fwd comm)</text>
+<rect x="120" y="300" width="720" height="118" rx="8" fill="#131c2e" stroke="rgba(0,200,255,0.2)"/>
+<text x="480" y="326" font-size="11.5" fill="#d0dce8" text-anchor="middle" font-weight="normal">f and g are conjugate operators &#8212; each is the other&#8217;s transpose in backward:</text>
+<text x="480" y="352" font-size="10.5" fill="#7a8899" text-anchor="middle" font-weight="normal">f :  forward = identity (copy X)          backward = all-reduce (sum the partial dX from both ranks)</text>
+<text x="480" y="372" font-size="10.5" fill="#7a8899" text-anchor="middle" font-weight="normal">g :  forward = all-reduce (sum partial Z)  backward = identity (copy dZ)</text>
+<text x="480" y="398" font-size="10.5" fill="#00c8ff" text-anchor="middle" font-weight="normal">per layer per step: 1 all-reduce fwd + 1 bwd (&#215;2 with attention) &#183; message = activation [B&#183;s, H], not weights</text>
+</svg>

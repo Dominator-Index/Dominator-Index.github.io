@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 330" font-family="'JetBrains Mono','SFMono-Regular',Consolas,monospace">
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#00c8ff"/></marker></defs>
+<rect width="960" height="330" fill="#0b0f19"/>
+<text x="480.0" y="30" font-size="16.5" fill="#d0dce8" text-anchor="middle" font-weight="bold">Why the order cannot flip: GeLU(a + b) &#8800; GeLU(a) + GeLU(b)</text>
+<text x="480.0" y="52" font-size="11.5" fill="#7a8899" text-anchor="middle" font-weight="normal">put the Row-cut first and the nonlinearity forces an all-reduce IN THE MIDDLE of the layer</text>
+<text x="70" y="124" font-size="12" fill="#199e70" text-anchor="start" font-weight="bold">&#10003; Col&#8594;Row</text>
+<rect x="220" y="100" width="130" height="44" rx="6" fill="#0099c4" opacity="0.9"/>
+<text x="285" y="127" font-size="10.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">XW1&#7488; (col-cut)</text>
+<line x1="354" y1="122" x2="382" y2="122" stroke="#00c8ff" stroke-width="4.800000000000001" opacity="0.22" stroke-linecap="round"/>
+<line x1="354" y1="122" x2="382" y2="122" stroke="#00c8ff" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="386" y="100" width="130" height="44" rx="6" fill="#199e70" opacity="0.9"/>
+<text x="451" y="127" font-size="10.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">GeLU &#8212; local &#10003;</text>
+<line x1="520" y1="122" x2="548" y2="122" stroke="#00c8ff" stroke-width="4.800000000000001" opacity="0.22" stroke-linecap="round"/>
+<line x1="520" y1="122" x2="548" y2="122" stroke="#00c8ff" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="552" y="100" width="130" height="44" rx="6" fill="#0099c4" opacity="0.9"/>
+<text x="617" y="127" font-size="10.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">&#183;W2&#7488; (row-cut)</text>
+<line x1="686" y1="122" x2="714" y2="122" stroke="#00c8ff" stroke-width="4.800000000000001" opacity="0.22" stroke-linecap="round"/>
+<line x1="686" y1="122" x2="714" y2="122" stroke="#00c8ff" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="718" y="100" width="130" height="44" rx="6" fill="none" stroke="#00c8ff" stroke-width="2"/>
+<text x="783" y="127" font-size="10.5" fill="#00c8ff" text-anchor="middle" font-weight="bold">all-reduce</text>
+<text x="886" y="127" font-size="11" fill="#199e70" text-anchor="start" font-weight="bold">1 comm</text>
+<text x="70" y="224" font-size="12" fill="#e66767" text-anchor="start" font-weight="bold">&#10007; Row&#8594;Col</text>
+<rect x="220" y="200" width="130" height="44" rx="6" fill="#0099c4" opacity="0.9"/>
+<text x="285" y="227" font-size="10.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">XW1&#7488; (row-cut)</text>
+<line x1="354" y1="222" x2="382" y2="222" stroke="#00c8ff" stroke-width="4.800000000000001" opacity="0.22" stroke-linecap="round"/>
+<line x1="354" y1="222" x2="382" y2="222" stroke="#00c8ff" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="386" y="200" width="130" height="44" rx="6" fill="none" stroke="#e66767" stroke-width="2"/>
+<text x="451" y="227" font-size="10.5" fill="#e66767" text-anchor="middle" font-weight="bold">all-reduce!</text>
+<line x1="520" y1="222" x2="548" y2="222" stroke="#00c8ff" stroke-width="4.800000000000001" opacity="0.22" stroke-linecap="round"/>
+<line x1="520" y1="222" x2="548" y2="222" stroke="#00c8ff" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="552" y="200" width="130" height="44" rx="6" fill="#0099c4" opacity="0.9"/>
+<text x="617" y="227" font-size="10.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">GeLU</text>
+<line x1="686" y1="222" x2="714" y2="222" stroke="#00c8ff" stroke-width="4.800000000000001" opacity="0.22" stroke-linecap="round"/>
+<line x1="686" y1="222" x2="714" y2="222" stroke="#00c8ff" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="718" y="200" width="130" height="44" rx="6" fill="none" stroke="#e66767" stroke-width="2"/>
+<text x="783" y="227" font-size="10.5" fill="#e66767" text-anchor="middle" font-weight="bold">&#183;W2&#7488; + all-reduce</text>
+<text x="886" y="227" font-size="11" fill="#e66767" text-anchor="start" font-weight="bold">2 comms</text>
+<text x="345" y="262" font-size="9.5" fill="#e66767" text-anchor="middle" font-weight="normal">partial sums must be completed BEFORE the nonlinearity &#8212; comm lands mid-layer</text>
+<text x="480.0" y="306" font-size="11" fill="#00c8ff" text-anchor="middle" font-weight="normal">the nonlinearity dictates the cut order &#8212; that is the whole design of Megatron TP</text>
+</svg>
