@@ -1,0 +1,247 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 742" font-family="'JetBrains Mono','SFMono-Regular',Consolas,monospace">
+<defs>
+<marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#00c8ff"/></marker>
+</defs>
+<rect width="960" height="742" fill="#0b0f19"/>
+<text x="480.0" y="30" font-size="17" fill="#d0dce8" text-anchor="middle" font-weight="bold">The six collective primitives (N = 4 GPUs)</text>
+<text x="480.0" y="50" font-size="11.5" fill="#7a8899" text-anchor="middle" font-weight="normal">colored chip = one shard (S/N bytes) &#183; &#931; = reduced (summed) shard &#183; wide bar = full tensor (S bytes)</text>
+<rect x="18" y="70" width="452" height="204" rx="10" fill="none" stroke="rgba(0,200,255,0.18)"/>
+<text x="244.0" y="92" font-size="14" fill="#00c8ff" text-anchor="middle" font-weight="bold">Broadcast</text>
+<rect x="30" y="104" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="38" y="119" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G0</text>
+<rect x="38" y="130" width="80" height="20" rx="3" fill="#0099c4"/>
+<rect x="140" y="104" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="148" y="119" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G1</text>
+<rect x="250" y="104" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="258" y="119" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G2</text>
+<rect x="360" y="104" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="368" y="119" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G3</text>
+<line x1="244.0" y1="170" x2="244.0" y2="194" stroke="#00c8ff" stroke-width="4.800000000000001" opacity="0.22" stroke-linecap="round"/>
+<line x1="244.0" y1="170" x2="244.0" y2="194" stroke="#00c8ff" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="30" y="198" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="38" y="213" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G0</text>
+<rect x="38" y="224" width="80" height="20" rx="3" fill="#0099c4"/>
+<rect x="140" y="198" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="148" y="213" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G1</text>
+<rect x="148" y="224" width="80" height="20" rx="3" fill="#0099c4"/>
+<rect x="250" y="198" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="258" y="213" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G2</text>
+<rect x="258" y="224" width="80" height="20" rx="3" fill="#0099c4"/>
+<rect x="360" y="198" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="368" y="213" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G3</text>
+<rect x="368" y="224" width="80" height="20" rx="3" fill="#0099c4"/>
+<text x="244.0" y="266" font-size="10.5" fill="#7a8899" text-anchor="middle" font-weight="normal">root sends the full tensor to everyone &#183; 1 &#8594; N</text>
+<rect x="490" y="70" width="452" height="204" rx="10" fill="none" stroke="rgba(0,200,255,0.18)"/>
+<text x="716.0" y="92" font-size="14" fill="#00c8ff" text-anchor="middle" font-weight="bold">Scatter</text>
+<rect x="502" y="104" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="510" y="119" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G0</text>
+<rect x="510" y="130" width="18" height="18" rx="3" fill="#0099c4"/>
+<rect x="531" y="130" width="18" height="18" rx="3" fill="#e66767"/>
+<rect x="552" y="130" width="18" height="18" rx="3" fill="#9085e9"/>
+<rect x="573" y="130" width="18" height="18" rx="3" fill="#199e70"/>
+<rect x="612" y="104" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="620" y="119" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G1</text>
+<rect x="722" y="104" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="730" y="119" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G2</text>
+<rect x="832" y="104" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="840" y="119" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G3</text>
+<line x1="716.0" y1="170" x2="716.0" y2="194" stroke="#00c8ff" stroke-width="4.800000000000001" opacity="0.22" stroke-linecap="round"/>
+<line x1="716.0" y1="170" x2="716.0" y2="194" stroke="#00c8ff" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="502" y="198" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="510" y="213" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G0</text>
+<rect x="510" y="224" width="18" height="18" rx="3" fill="#0099c4"/>
+<rect x="612" y="198" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="620" y="213" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G1</text>
+<rect x="641" y="224" width="18" height="18" rx="3" fill="#e66767"/>
+<rect x="722" y="198" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="730" y="213" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G2</text>
+<rect x="772" y="224" width="18" height="18" rx="3" fill="#9085e9"/>
+<rect x="832" y="198" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="840" y="213" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G3</text>
+<rect x="903" y="224" width="18" height="18" rx="3" fill="#199e70"/>
+<text x="716.0" y="266" font-size="10.5" fill="#7a8899" text-anchor="middle" font-weight="normal">root deals one shard to each rank &#183; 1 &#8594; N</text>
+<rect x="18" y="292" width="452" height="204" rx="10" fill="none" stroke="rgba(0,200,255,0.18)"/>
+<text x="244.0" y="314" font-size="14" fill="#00c8ff" text-anchor="middle" font-weight="bold">Gather</text>
+<rect x="30" y="326" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="38" y="341" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G0</text>
+<rect x="38" y="352" width="18" height="18" rx="3" fill="#0099c4"/>
+<rect x="140" y="326" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="148" y="341" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G1</text>
+<rect x="169" y="352" width="18" height="18" rx="3" fill="#e66767"/>
+<rect x="250" y="326" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="258" y="341" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G2</text>
+<rect x="300" y="352" width="18" height="18" rx="3" fill="#9085e9"/>
+<rect x="360" y="326" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="368" y="341" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G3</text>
+<rect x="431" y="352" width="18" height="18" rx="3" fill="#199e70"/>
+<line x1="244.0" y1="392" x2="244.0" y2="416" stroke="#00c8ff" stroke-width="4.800000000000001" opacity="0.22" stroke-linecap="round"/>
+<line x1="244.0" y1="392" x2="244.0" y2="416" stroke="#00c8ff" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="30" y="420" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="38" y="435" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G0</text>
+<rect x="38" y="446" width="18" height="18" rx="3" fill="#0099c4"/>
+<rect x="59" y="446" width="18" height="18" rx="3" fill="#e66767"/>
+<rect x="80" y="446" width="18" height="18" rx="3" fill="#9085e9"/>
+<rect x="101" y="446" width="18" height="18" rx="3" fill="#199e70"/>
+<rect x="140" y="420" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="148" y="435" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G1</text>
+<rect x="250" y="420" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="258" y="435" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G2</text>
+<rect x="360" y="420" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="368" y="435" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G3</text>
+<text x="244.0" y="488" font-size="10.5" fill="#7a8899" text-anchor="middle" font-weight="normal">every rank sends its shard to root &#183; N &#8594; 1</text>
+<rect x="490" y="292" width="452" height="204" rx="10" fill="none" stroke="rgba(0,200,255,0.18)"/>
+<text x="716.0" y="314" font-size="14" fill="#00c8ff" text-anchor="middle" font-weight="bold">All-Gather</text>
+<rect x="502" y="326" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="510" y="341" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G0</text>
+<rect x="510" y="352" width="18" height="18" rx="3" fill="#0099c4"/>
+<rect x="612" y="326" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="620" y="341" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G1</text>
+<rect x="641" y="352" width="18" height="18" rx="3" fill="#e66767"/>
+<rect x="722" y="326" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="730" y="341" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G2</text>
+<rect x="772" y="352" width="18" height="18" rx="3" fill="#9085e9"/>
+<rect x="832" y="326" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="840" y="341" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G3</text>
+<rect x="903" y="352" width="18" height="18" rx="3" fill="#199e70"/>
+<line x1="716.0" y1="392" x2="716.0" y2="416" stroke="#00c8ff" stroke-width="4.800000000000001" opacity="0.22" stroke-linecap="round"/>
+<line x1="716.0" y1="392" x2="716.0" y2="416" stroke="#00c8ff" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="502" y="420" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="510" y="435" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G0</text>
+<rect x="510" y="446" width="18" height="18" rx="3" fill="#0099c4"/>
+<rect x="531" y="446" width="18" height="18" rx="3" fill="#e66767"/>
+<rect x="552" y="446" width="18" height="18" rx="3" fill="#9085e9"/>
+<rect x="573" y="446" width="18" height="18" rx="3" fill="#199e70"/>
+<rect x="612" y="420" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="620" y="435" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G1</text>
+<rect x="620" y="446" width="18" height="18" rx="3" fill="#0099c4"/>
+<rect x="641" y="446" width="18" height="18" rx="3" fill="#e66767"/>
+<rect x="662" y="446" width="18" height="18" rx="3" fill="#9085e9"/>
+<rect x="683" y="446" width="18" height="18" rx="3" fill="#199e70"/>
+<rect x="722" y="420" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="730" y="435" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G2</text>
+<rect x="730" y="446" width="18" height="18" rx="3" fill="#0099c4"/>
+<rect x="751" y="446" width="18" height="18" rx="3" fill="#e66767"/>
+<rect x="772" y="446" width="18" height="18" rx="3" fill="#9085e9"/>
+<rect x="793" y="446" width="18" height="18" rx="3" fill="#199e70"/>
+<rect x="832" y="420" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="840" y="435" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G3</text>
+<rect x="840" y="446" width="18" height="18" rx="3" fill="#0099c4"/>
+<rect x="861" y="446" width="18" height="18" rx="3" fill="#e66767"/>
+<rect x="882" y="446" width="18" height="18" rx="3" fill="#9085e9"/>
+<rect x="903" y="446" width="18" height="18" rx="3" fill="#199e70"/>
+<text x="716.0" y="488" font-size="10.5" fill="#7a8899" text-anchor="middle" font-weight="normal">everyone ends up with all shards &#183; N &#8594; N</text>
+<rect x="18" y="514" width="452" height="204" rx="10" fill="none" stroke="rgba(0,200,255,0.18)"/>
+<text x="244.0" y="536" font-size="14" fill="#00c8ff" text-anchor="middle" font-weight="bold">Reduce-Scatter</text>
+<rect x="30" y="548" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="38" y="563" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G0</text>
+<rect x="38" y="574" width="18" height="18" rx="3" fill="#0099c4"/>
+<rect x="59" y="574" width="18" height="18" rx="3" fill="#e66767"/>
+<rect x="80" y="574" width="18" height="18" rx="3" fill="#9085e9"/>
+<rect x="101" y="574" width="18" height="18" rx="3" fill="#199e70"/>
+<rect x="140" y="548" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="148" y="563" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G1</text>
+<rect x="148" y="574" width="18" height="18" rx="3" fill="#0099c4"/>
+<rect x="169" y="574" width="18" height="18" rx="3" fill="#e66767"/>
+<rect x="190" y="574" width="18" height="18" rx="3" fill="#9085e9"/>
+<rect x="211" y="574" width="18" height="18" rx="3" fill="#199e70"/>
+<rect x="250" y="548" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="258" y="563" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G2</text>
+<rect x="258" y="574" width="18" height="18" rx="3" fill="#0099c4"/>
+<rect x="279" y="574" width="18" height="18" rx="3" fill="#e66767"/>
+<rect x="300" y="574" width="18" height="18" rx="3" fill="#9085e9"/>
+<rect x="321" y="574" width="18" height="18" rx="3" fill="#199e70"/>
+<rect x="360" y="548" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="368" y="563" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G3</text>
+<rect x="368" y="574" width="18" height="18" rx="3" fill="#0099c4"/>
+<rect x="389" y="574" width="18" height="18" rx="3" fill="#e66767"/>
+<rect x="410" y="574" width="18" height="18" rx="3" fill="#9085e9"/>
+<rect x="431" y="574" width="18" height="18" rx="3" fill="#199e70"/>
+<line x1="244.0" y1="614" x2="244.0" y2="638" stroke="#00c8ff" stroke-width="4.800000000000001" opacity="0.22" stroke-linecap="round"/>
+<line x1="244.0" y1="614" x2="244.0" y2="638" stroke="#00c8ff" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="30" y="642" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="38" y="657" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G0</text>
+<rect x="38" y="668" width="18" height="18" rx="3" fill="#0099c4" stroke="#d0dce8" stroke-width="1.4"/>
+<text x="47.0" y="681.5" font-size="12" fill="#0b0f19" text-anchor="middle" font-weight="bold">&#931;</text>
+<rect x="140" y="642" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="148" y="657" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G1</text>
+<rect x="169" y="668" width="18" height="18" rx="3" fill="#e66767" stroke="#d0dce8" stroke-width="1.4"/>
+<text x="178.0" y="681.5" font-size="12" fill="#0b0f19" text-anchor="middle" font-weight="bold">&#931;</text>
+<rect x="250" y="642" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="258" y="657" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G2</text>
+<rect x="300" y="668" width="18" height="18" rx="3" fill="#9085e9" stroke="#d0dce8" stroke-width="1.4"/>
+<text x="309.0" y="681.5" font-size="12" fill="#0b0f19" text-anchor="middle" font-weight="bold">&#931;</text>
+<rect x="360" y="642" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="368" y="657" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G3</text>
+<rect x="431" y="668" width="18" height="18" rx="3" fill="#199e70" stroke="#d0dce8" stroke-width="1.4"/>
+<text x="440.0" y="681.5" font-size="12" fill="#0b0f19" text-anchor="middle" font-weight="bold">&#931;</text>
+<text x="244.0" y="710" font-size="10.5" fill="#7a8899" text-anchor="middle" font-weight="normal">shard k gets summed across ranks, lands on rank k &#183; N &#8594; N</text>
+<rect x="490" y="514" width="452" height="204" rx="10" fill="none" stroke="rgba(0,200,255,0.18)"/>
+<text x="716.0" y="536" font-size="14" fill="#00c8ff" text-anchor="middle" font-weight="bold">All-Reduce</text>
+<rect x="502" y="548" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="510" y="563" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G0</text>
+<rect x="510" y="574" width="18" height="18" rx="3" fill="#0099c4"/>
+<rect x="531" y="574" width="18" height="18" rx="3" fill="#e66767"/>
+<rect x="552" y="574" width="18" height="18" rx="3" fill="#9085e9"/>
+<rect x="573" y="574" width="18" height="18" rx="3" fill="#199e70"/>
+<rect x="612" y="548" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="620" y="563" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G1</text>
+<rect x="620" y="574" width="18" height="18" rx="3" fill="#0099c4"/>
+<rect x="641" y="574" width="18" height="18" rx="3" fill="#e66767"/>
+<rect x="662" y="574" width="18" height="18" rx="3" fill="#9085e9"/>
+<rect x="683" y="574" width="18" height="18" rx="3" fill="#199e70"/>
+<rect x="722" y="548" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="730" y="563" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G2</text>
+<rect x="730" y="574" width="18" height="18" rx="3" fill="#0099c4"/>
+<rect x="751" y="574" width="18" height="18" rx="3" fill="#e66767"/>
+<rect x="772" y="574" width="18" height="18" rx="3" fill="#9085e9"/>
+<rect x="793" y="574" width="18" height="18" rx="3" fill="#199e70"/>
+<rect x="832" y="548" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="840" y="563" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G3</text>
+<rect x="840" y="574" width="18" height="18" rx="3" fill="#0099c4"/>
+<rect x="861" y="574" width="18" height="18" rx="3" fill="#e66767"/>
+<rect x="882" y="574" width="18" height="18" rx="3" fill="#9085e9"/>
+<rect x="903" y="574" width="18" height="18" rx="3" fill="#199e70"/>
+<line x1="716.0" y1="614" x2="716.0" y2="638" stroke="#00c8ff" stroke-width="4.800000000000001" opacity="0.22" stroke-linecap="round"/>
+<line x1="716.0" y1="614" x2="716.0" y2="638" stroke="#00c8ff" stroke-width="1.6" marker-end="url(#arr)"/>
+<rect x="502" y="642" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="510" y="657" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G0</text>
+<rect x="510" y="668" width="18" height="18" rx="3" fill="#0099c4" stroke="#d0dce8" stroke-width="1.4"/>
+<text x="519.0" y="681.5" font-size="12" fill="#0b0f19" text-anchor="middle" font-weight="bold">&#931;</text>
+<rect x="531" y="668" width="18" height="18" rx="3" fill="#e66767" stroke="#d0dce8" stroke-width="1.4"/>
+<text x="540.0" y="681.5" font-size="12" fill="#0b0f19" text-anchor="middle" font-weight="bold">&#931;</text>
+<rect x="552" y="668" width="18" height="18" rx="3" fill="#9085e9" stroke="#d0dce8" stroke-width="1.4"/>
+<text x="561.0" y="681.5" font-size="12" fill="#0b0f19" text-anchor="middle" font-weight="bold">&#931;</text>
+<rect x="573" y="668" width="18" height="18" rx="3" fill="#199e70" stroke="#d0dce8" stroke-width="1.4"/>
+<text x="582.0" y="681.5" font-size="12" fill="#0b0f19" text-anchor="middle" font-weight="bold">&#931;</text>
+<rect x="612" y="642" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="620" y="657" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G1</text>
+<rect x="620" y="668" width="18" height="18" rx="3" fill="#0099c4" stroke="#d0dce8" stroke-width="1.4"/>
+<text x="629.0" y="681.5" font-size="12" fill="#0b0f19" text-anchor="middle" font-weight="bold">&#931;</text>
+<rect x="641" y="668" width="18" height="18" rx="3" fill="#e66767" stroke="#d0dce8" stroke-width="1.4"/>
+<text x="650.0" y="681.5" font-size="12" fill="#0b0f19" text-anchor="middle" font-weight="bold">&#931;</text>
+<rect x="662" y="668" width="18" height="18" rx="3" fill="#9085e9" stroke="#d0dce8" stroke-width="1.4"/>
+<text x="671.0" y="681.5" font-size="12" fill="#0b0f19" text-anchor="middle" font-weight="bold">&#931;</text>
+<rect x="683" y="668" width="18" height="18" rx="3" fill="#199e70" stroke="#d0dce8" stroke-width="1.4"/>
+<text x="692.0" y="681.5" font-size="12" fill="#0b0f19" text-anchor="middle" font-weight="bold">&#931;</text>
+<rect x="722" y="642" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="730" y="657" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G2</text>
+<rect x="730" y="668" width="18" height="18" rx="3" fill="#0099c4" stroke="#d0dce8" stroke-width="1.4"/>
+<text x="739.0" y="681.5" font-size="12" fill="#0b0f19" text-anchor="middle" font-weight="bold">&#931;</text>
+<rect x="751" y="668" width="18" height="18" rx="3" fill="#e66767" stroke="#d0dce8" stroke-width="1.4"/>
+<text x="760.0" y="681.5" font-size="12" fill="#0b0f19" text-anchor="middle" font-weight="bold">&#931;</text>
+<rect x="772" y="668" width="18" height="18" rx="3" fill="#9085e9" stroke="#d0dce8" stroke-width="1.4"/>
+<text x="781.0" y="681.5" font-size="12" fill="#0b0f19" text-anchor="middle" font-weight="bold">&#931;</text>
+<rect x="793" y="668" width="18" height="18" rx="3" fill="#199e70" stroke="#d0dce8" stroke-width="1.4"/>
+<text x="802.0" y="681.5" font-size="12" fill="#0b0f19" text-anchor="middle" font-weight="bold">&#931;</text>
+<rect x="832" y="642" width="96" height="58" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.3"/>
+<text x="840" y="657" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">G3</text>
+<rect x="840" y="668" width="18" height="18" rx="3" fill="#0099c4" stroke="#d0dce8" stroke-width="1.4"/>
+<text x="849.0" y="681.5" font-size="12" fill="#0b0f19" text-anchor="middle" font-weight="bold">&#931;</text>
+<rect x="861" y="668" width="18" height="18" rx="3" fill="#e66767" stroke="#d0dce8" stroke-width="1.4"/>
+<text x="870.0" y="681.5" font-size="12" fill="#0b0f19" text-anchor="middle" font-weight="bold">&#931;</text>
+<rect x="882" y="668" width="18" height="18" rx="3" fill="#9085e9" stroke="#d0dce8" stroke-width="1.4"/>
+<text x="891.0" y="681.5" font-size="12" fill="#0b0f19" text-anchor="middle" font-weight="bold">&#931;</text>
+<rect x="903" y="668" width="18" height="18" rx="3" fill="#199e70" stroke="#d0dce8" stroke-width="1.4"/>
+<text x="912.0" y="681.5" font-size="12" fill="#0b0f19" text-anchor="middle" font-weight="bold">&#931;</text>
+<text x="716.0" y="710" font-size="10.5" fill="#7a8899" text-anchor="middle" font-weight="normal">= reduce-scatter + all-gather &#183; everyone gets the full sum</text>
+</svg>

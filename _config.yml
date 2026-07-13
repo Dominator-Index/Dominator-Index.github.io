@@ -233,7 +233,7 @@ jekyll-archives:
     category: "/blog/category/:name/"
 
 display_tags: ["math", "optimization", "deep-learning"]
-display_categories: []
+display_categories: ["distributed-training"]
 
 # -----------------------------------------------------------------------------
 # Jekyll Scholar

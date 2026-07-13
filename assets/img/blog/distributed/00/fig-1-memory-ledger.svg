@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" font-family="'JetBrains Mono','SFMono-Regular',Consolas,monospace">
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#00c8ff"/></marker></defs>
+<rect width="960" height="420" fill="#0b0f19"/>
+<text x="480.0" y="34" font-size="17" fill="#d0dce8" text-anchor="middle" font-weight="bold">The memory ledger: training &#8776; storing 8 copies of your model</text>
+<text x="480.0" y="56" font-size="11.5" fill="#7a8899" text-anchor="middle" font-weight="normal">mixed-precision Adam &#183; &#936; = number of parameters &#183; bytes per item shown as &#215;&#936;</text>
+<rect x="70" y="120" width="99.5" height="64" rx="6" fill="#0099c4" opacity="1.0"/>
+<text x="120.25" y="150.0" font-size="15" fill="#0b0f19" text-anchor="middle" font-weight="bold">2&#936;</text>
+<text x="120.25" y="167.0" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="normal">bf16 params</text>
+<rect x="172.5" y="120" width="99.5" height="64" rx="6" fill="#9085e9" opacity="1.0"/>
+<text x="222.75" y="150.0" font-size="15" fill="#0b0f19" text-anchor="middle" font-weight="bold">2&#936;</text>
+<text x="222.75" y="167.0" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="normal">bf16 grads</text>
+<rect x="275.0" y="120" width="202.0" height="64" rx="6" fill="#c98500" opacity="1.0"/>
+<text x="376.5" y="150.0" font-size="15" fill="#0b0f19" text-anchor="middle" font-weight="bold">4&#936;</text>
+<text x="376.5" y="167.0" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="normal">fp32 master params</text>
+<rect x="480.0" y="120" width="202.0" height="64" rx="6" fill="#c98500" opacity="0.75"/>
+<text x="581.5" y="150.0" font-size="15" fill="#0b0f19" text-anchor="middle" font-weight="bold">4&#936;</text>
+<text x="581.5" y="167.0" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="normal">Adam m</text>
+<rect x="685.0" y="120" width="202.0" height="64" rx="6" fill="#c98500" opacity="0.5"/>
+<text x="786.5" y="150.0" font-size="15" fill="#0b0f19" text-anchor="middle" font-weight="bold">4&#936;</text>
+<text x="786.5" y="167.0" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="normal">Adam v</text>
+<text x="172.5" y="106" font-size="10.5" fill="#7a8899" text-anchor="middle" font-weight="normal">compute copies (bf16)</text>
+<text x="582.5" y="106" font-size="10.5" fill="#7a8899" text-anchor="middle" font-weight="normal">optimizer state (fp32) &#8212; 3/4 of the bill</text>
+<line x1="70" y1="202" x2="890" y2="202" stroke="#00c8ff" stroke-width="1.2" marker-end="url(#arr)" marker-start="url(#arr)"/>
+<text x="480.0" y="220" font-size="12.5" fill="#00c8ff" text-anchor="middle" font-weight="bold">16&#936; bytes  (+ activations, batch/seq-dependent)</text>
+<rect x="70" y="254" width="820" height="76" rx="8" fill="#131c2e" stroke="rgba(0,200,255,0.2)"/>
+<text x="90" y="280" font-size="12" fill="#d0dce8" text-anchor="start" font-weight="bold">example &#8212; 7B model:</text>
+<text x="90" y="302" font-size="11.5" fill="#7a8899" text-anchor="start" font-weight="normal">checkpoint on disk (bf16):  2&#936; = 14 GB      training state:  16&#936; = 112 GB  &#8594;  does not fit in one 96 GB GPU</text>
+<text x="90" y="320" font-size="11.5" fill="#7a8899" text-anchor="start" font-weight="normal">and that is before activations &#8212; this wall is why ZeRO/FSDP exist (posts #3-#4)</text>
+</svg>
