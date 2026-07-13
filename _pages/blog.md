@@ -98,7 +98,7 @@ nav_order: 1
 
   <div class="header-bar" style="padding-bottom: 0.5rem;">
     {% if category == "distributed-training" %}
-      <h2 style="text-transform: none;">Distributed Training, Illustrated</h2>
+      <h2 style="text-transform: none;">An Overview of Distributed Learning</h2>
       <p class="post-description">a series — read in order; one idea per post, every claim measured on 8 GPUs</p>
     {% elsif category == "optimizers" %}
       <h2 style="text-transform: none;">Optimizers</h2>

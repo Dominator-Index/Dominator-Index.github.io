@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "Distributed Training, Illustrated #2 — Data Parallelism, Part 1: From DP to DDP"
-date: 2026-07-13 12:00:00
+title: "From DP To DDP: Buckets, Overlap, And A 25 MB Sweet Spot"
+date: 2026-07-07 10:00:00
 description: "DP's exactness invariant, and how DDP hides the gradient all-reduce inside the backward pass: bucketing against the latency floor, overlap against the bandwidth bill — with a full bucket_cap_mb sweep on 8 GPUs."
 tags: distributed-training deep-learning
 categories: distributed-training
@@ -11,7 +11,7 @@ toc:
 related_posts: false
 ---
 
-> Part 2 of **Distributed Training, Illustrated**. One post, one idea: **data parallelism's invariant, and how DDP buries the communication bill inside the backward pass.** [Post #1](/blog/2026/distributed-training-illustrated-1-collective-communication/) priced one all-reduce; this post watches PyTorch DDP pay that price — and haggle it down. Experiments: nanoGPT-124M on 8 GPUs, with a full `bucket_cap_mb` sweep.
+> Part 2 of **An Overview of Distributed Learning**. One post, one idea: **data parallelism's invariant, and how DDP buries the communication bill inside the backward pass.** [Post #1](/blog/2026/distributed-training-illustrated-1-collective-communication/) priced one all-reduce; this post watches PyTorch DDP pay that price — and haggle it down. Experiments: nanoGPT-124M on 8 GPUs, with a full `bucket_cap_mb` sweep.
 
 ## 1. The invariant: DP never approximates anything
 

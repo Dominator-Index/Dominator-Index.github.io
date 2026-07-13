@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "Distributed Training, Illustrated #4 — FSDP: How PyTorch Implements ZeRO-3"
-date: 2026-07-13 16:00:00
+title: "FSDP Under The Hood: ZeRO-3 The PyTorch Way"
+date: 2026-07-09 10:00:00
 description: "FlatParameter vs per-parameter DTensor sharded along dim-0, the gather/prefetch/reshard timeline, and the reshard_after_forward knob — measured: 11.8 → 1.3 GiB resident, with every gap priced by post #1's bandwidth table."
 tags: distributed-training deep-learning
 categories: distributed-training
@@ -11,7 +11,7 @@ toc:
 related_posts: false
 ---
 
-> Part 4 of **Distributed Training, Illustrated**. One post, one idea: **FSDP's sharding geometry and its fetch-and-return choreography** — FlatParameter (FSDP1) vs per-parameter DTensor sharded along dim-0 (FSDP2), and `reshard_after_forward`, the one switch that toggles between ZeRO-2 and ZeRO-3 semantics. Experiments: GPT-2 Large, FSDP2 vs DDP, 8 GPUs.
+> Part 4 of **An Overview of Distributed Learning**. One post, one idea: **FSDP's sharding geometry and its fetch-and-return choreography** — FlatParameter (FSDP1) vs per-parameter DTensor sharded along dim-0 (FSDP2), and `reshard_after_forward`, the one switch that toggles between ZeRO-2 and ZeRO-3 semantics. Experiments: GPT-2 Large, FSDP2 vs DDP, 8 GPUs.
 
 ## 1. From ZeRO-3 to FSDP: the same idea, grown into the framework
 

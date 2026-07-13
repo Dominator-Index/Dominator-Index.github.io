@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "Distributed Training, Illustrated #7 — Pipeline Parallelism: The Geometry of Bubbles"
-date: 2026-07-13 22:00:00
+title: "The Geometry Of Pipeline Bubbles"
+date: 2026-07-12 10:00:00
 description: "The (p−1)/(m+p−1) bubble derived by counting grid cells, 1F1B's same-bubble-1/m-memory rearrangement, and a 60-line hand-written GPipe that nails the formula at m=1 — then hits the wall the formula doesn't mention."
 tags: distributed-training deep-learning
 categories: distributed-training
@@ -11,7 +11,7 @@ toc:
 related_posts: false
 ---
 
-> Part 7 of **Distributed Training, Illustrated**. One post, one idea: **the pipeline bubble is decided by schedule geometry — where $$(p-1)/(m+p-1)$$ comes from, how 1F1B improves on it, and where it fails when measured.** Experiment: a hand-written GPipe (~60 lines) on 4 GPUs that reproduces the formula to 0.9% at $$m{=}1$$ — and then runs into another wall the formula never wrote down.
+> Part 7 of **An Overview of Distributed Learning**. One post, one idea: **the pipeline bubble is decided by schedule geometry — where $$(p-1)/(m+p-1)$$ comes from, how 1F1B improves on it, and where it fails when measured.** Experiment: a hand-written GPipe (~60 lines) on 4 GPUs that reproduces the formula to 0.9% at $$m{=}1$$ — and then runs into another wall the formula never wrote down.
 
 ## 1. PP is the first parallelism with division of labor
 

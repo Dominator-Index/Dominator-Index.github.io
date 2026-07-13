@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "Distributed Training, Illustrated #6 — Sequence & Context Parallelism: Two Ways to Cut the Sequence"
-date: 2026-07-13 20:00:00
+title: "Splitting The Sequence: Megatron-SP And Ring Attention"
+date: 2026-07-11 10:00:00
 description: "Megatron-SP patches TP's activation leak (the AR = AG + RS identity, third appearance), Ring Attention attacks O(s²) long context — with a hand-written ring attention verified exact, and a scaling result that inverts post #5's."
 tags: distributed-training deep-learning
 categories: distributed-training
@@ -11,7 +11,7 @@ toc:
 related_posts: false
 ---
 
-> Part 6 of **Distributed Training, Illustrated**. One post, one idea (with two faces): **the two schemes that cut along the sequence dimension solve two different problems** — Megatron-SP patches TP's activation leak (the AR = AG + RS identity again, its third appearance in this series), Ring Attention (CP) attacks long context's $$O(s^2)$$. Experiments: a hand-written ring attention verified exactly equivalent, which — on the very PCIe box where TP flatlined — **actually scales**.
+> Part 6 of **An Overview of Distributed Learning**. One post, one idea (with two faces): **the two schemes that cut along the sequence dimension solve two different problems** — Megatron-SP patches TP's activation leak (the AR = AG + RS identity again, its third appearance in this series), Ring Attention (CP) attacks long context's $$O(s^2)$$. Experiments: a hand-written ring attention verified exactly equivalent, which — on the very PCIe box where TP flatlined — **actually scales**.
 
 ## 1. The activation leak TP leaves behind
 

@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "Distributed Training, Illustrated #0 — A Map of 5D Parallelism"
-date: 2026-07-12 10:00:00
+title: "Why A Single GPU Is Never Enough: A Map Of 5D Parallelism"
+date: 2026-07-05 10:00:00
 description: "Why one GPU is never enough: the 16Ψ memory ledger, the two walls, and a map of the five parallelism dimensions this series will visit one by one."
 tags: distributed-training deep-learning
 categories: distributed-training
@@ -11,7 +11,7 @@ toc:
 related_posts: false
 ---
 
-> This is the prologue of **Distributed Training, Illustrated** — a series where each post explains exactly one idea (DP/DDP, ZeRO, FSDP, TP, SP/CP, PP), with the math derived from scratch, real source code to read along, and experiments actually run on an 8-GPU machine. This post is the map: **why a single GPU cannot train a large model, and what each parallelism dimension cuts.**
+> This is the prologue of **An Overview of Distributed Learning** — a series where each post explains exactly one idea (DP/DDP, ZeRO, FSDP, TP, SP/CP, PP), with the math derived from scratch, real source code to read along, and experiments actually run on an 8-GPU machine. This post is the map: **why a single GPU cannot train a large model, and what each parallelism dimension cuts.**
 
 ## 1. The two walls
 

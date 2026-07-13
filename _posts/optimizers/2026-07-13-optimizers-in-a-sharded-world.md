@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "Optimizers in a Sharded World: Muon's O(mn) vs RMNP's Zero"
-date: 2026-07-13 23:50:00
+title: "Optimizers In A Sharded World: Muon's O(mn) Vs RMNP's Zero"
+date: 2026-07-13 10:00:00
 description: "The locality of an optimizer's precondition operator × the geometry of parameter sharding = a communication bill you can measure. On 8 GPUs, one optimizer step over all of GPT-2 Large's matrices costs RMNP 5.3 ms with zero communication and Muon 360 ms moving 1.15 GiB per GPU — a 67× gap that grows with scale, and the sharded RMNP update is bit-identical to the full-matrix one."
 tags: distributed-training optimization deep-learning
 categories: optimizers
@@ -11,7 +11,7 @@ toc:
 related_posts: false
 ---
 
-> A standalone post (outside the numbering of **Distributed Training, Illustrated**, but freely drawing on its ledgers). One post, one idea: **the "field of view" of an optimizer's precondition operator × the geometry of parameter sharding = a communication bill you can measure.** Muon's Newton-Schulz is a whole-matrix operator — in a sharded world it pays O(mn) communication per matrix per step, plus a heavyweight recomputation that needs its own scheduling. RMNP's row normalization is a row-local operator — it coincides exactly with FSDP2's / row-block TP's sharding geometry: zero communication. Measured on 8 GPUs over all of GPT-2 Large's matrices: **5.3 ms vs 360 ms per precondition step, a 67× gap** — and the sharded RMNP update is bit-identical to the full-matrix one (max diff = 0).
+> A standalone post (outside the numbering of **An Overview of Distributed Learning**, but freely drawing on its ledgers). One post, one idea: **the "field of view" of an optimizer's precondition operator × the geometry of parameter sharding = a communication bill you can measure.** Muon's Newton-Schulz is a whole-matrix operator — in a sharded world it pays O(mn) communication per matrix per step, plus a heavyweight recomputation that needs its own scheduling. RMNP's row normalization is a row-local operator — it coincides exactly with FSDP2's / row-block TP's sharding geometry: zero communication. Measured on 8 GPUs over all of GPT-2 Large's matrices: **5.3 ms vs 360 ms per precondition step, a 67× gap** — and the sharded RMNP update is bit-identical to the full-matrix one (max diff = 0).
 
 ## 1. Cashing in a thread the series left open
 

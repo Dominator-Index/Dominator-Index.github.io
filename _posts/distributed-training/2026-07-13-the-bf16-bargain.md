@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "Distributed Training, Illustrated #8 — Mixed Precision: The Numerics Ledger of the bf16 Era"
-date: 2026-07-13 23:30:00
+title: "The bf16 Bargain: A Numerics Ledger For Mixed Precision"
+date: 2026-07-13 09:00:00
 description: "Why parameters may be bf16 while the optimizer must stay fp32, and why fp16 needs loss scaling while bf16 doesn't — with a twist: naive all-bf16 training refuses to fail at toy scale (it even generalizes better), until a per-parameter audit shows 87% of late-training updates being swallowed, and a small-LR run makes the disease visible."
 tags: distributed-training deep-learning
 categories: distributed-training
@@ -11,7 +11,7 @@ toc:
 related_posts: false
 ---
 
-> Part 8 of **Distributed Training, Illustrated** — the closing post of the series. One post, one idea: **traffic runs in low precision, state stays in high precision — why parameters may be bf16, why the optimizer must be fp32, and why fp16 needs loss scaling while bf16 doesn't.** The experiment has a twist: at toy scale, naive all-bf16 training refuses to break — it even generalizes *better* — yet a per-parameter audit shows 87% of late-training updates being swallowed whole, and once the learning rate drops to late-large-model levels, the model without an fp32 master simply stops moving.
+> Part 8 of **An Overview of Distributed Learning** — the closing post of the series. One post, one idea: **traffic runs in low precision, state stays in high precision — why parameters may be bf16, why the optimizer must be fp32, and why fp16 needs loss scaling while bf16 doesn't.** The experiment has a twist: at toy scale, naive all-bf16 training refuses to break — it even generalizes *better* — yet a per-parameter audit shows 87% of late-training updates being swallowed whole, and once the learning rate drops to late-large-model levels, the model without an fp32 master simply stops moving.
 
 ## 1. The IOUs this series has accumulated
 

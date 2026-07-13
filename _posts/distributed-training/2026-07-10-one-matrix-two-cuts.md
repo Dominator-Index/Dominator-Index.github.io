@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "Distributed Training, Illustrated #5 — Tensor Parallelism: Megatron's Two Cuts"
-date: 2026-07-13 18:00:00
+title: "One Matrix, Two Cuts: Tensor Parallelism From Scratch"
+date: 2026-07-10 10:00:00
 description: "Why Column→Row is forced by the nonlinearity, a full backward-pass derivation showing that ALL weight gradients are communication-free, the bs/3h crossover against DP — and a hand-written TP MLP verified bit-exact against one GPU."
 tags: distributed-training deep-learning
 categories: distributed-training
@@ -11,7 +11,7 @@ toc:
 related_posts: false
 ---
 
-> Part 5 of **Distributed Training, Illustrated**. One post, one idea: **how TP cuts the computation of a single layer, and why the Column→Row order is dictated by the nonlinearity.** Unlike most tutorials, this post derives the **backward pass in full** — revealing a beautiful fact rarely spelled out: in TP, **every weight gradient is communication-free**; communication only ever touches activations. Experiments: a hand-written Column+Row MLP verified numerically exact against a single GPU, plus the TP=2/4/8 communication share on pure PCIe.
+> Part 5 of **An Overview of Distributed Learning**. One post, one idea: **how TP cuts the computation of a single layer, and why the Column→Row order is dictated by the nonlinearity.** Unlike most tutorials, this post derives the **backward pass in full** — revealing a beautiful fact rarely spelled out: in TP, **every weight gradient is communication-free**; communication only ever touches activations. Experiments: a hand-written Column+Row MLP verified numerically exact against a single GPU, plus the TP=2/4/8 communication share on pure PCIe.
 
 ## 1. Until now, computation was never cut
 

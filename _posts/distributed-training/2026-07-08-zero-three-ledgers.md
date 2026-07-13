@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "Distributed Training, Illustrated #3 — Data Parallelism, Part 2: ZeRO's Three-Stage Ledger"
-date: 2026-07-13 14:00:00
+title: "ZeRO: Three Ledgers, Zero Redundancy"
+date: 2026-07-08 10:00:00
 description: "ZeRO splits the all-reduce open and inserts a local update in the middle: optimizer state divided by N at zero extra communication. Measured on GPT-2 Large across DeepSpeed stages 0-3 — including two places where the paper's ledger and the implementation honestly disagree."
 tags: distributed-training deep-learning
 categories: distributed-training
@@ -11,7 +11,7 @@ toc:
 related_posts: false
 ---
 
-> Part 3 of **Distributed Training, Illustrated**. One post, one idea: **how ZeRO splits the all-reduce open so the redundant entries of the 16Ψ ledger get sharded across the DP group.** Experiments: GPT-2 Large (770M), DeepSpeed stages 0/1/2/3 on 8 GPUs, per-GPU memory measured — plus two honest findings where theory and implementation disagree, instructively.
+> Part 3 of **An Overview of Distributed Learning**. One post, one idea: **how ZeRO splits the all-reduce open so the redundant entries of the 16Ψ ledger get sharded across the DP group.** Experiments: GPT-2 Large (770M), DeepSpeed stages 0/1/2/3 on 8 GPUs, per-GPU memory measured — plus two honest findings where theory and implementation disagree, instructively.
 
 ## 1. The problem: DP replicates what it shouldn't
 

@@ -1,7 +1,7 @@
 ---
 layout: post
-title: "Distributed Training, Illustrated #1 — Collective Communication, or: How the All-Reduce Bill Is Computed"
-date: 2026-07-13 10:00:00
+title: "The Price Of All-Reduce"
+date: 2026-07-06 10:00:00
 description: "The six collective primitives, the ring all-reduce derivation of 2(N−1)/N·S, and what all of it actually measures on a real 8-GPU PCIe box."
 tags: distributed-training deep-learning
 categories: distributed-training
@@ -12,7 +12,7 @@ featured: true
 related_posts: false
 ---
 
-> Part 1 of **Distributed Training, Illustrated**. One post, one idea: **the six collective communication primitives, and why ring all-reduce costs each GPU exactly $$2\frac{N-1}{N}S$$ bytes.** Every number in this post was measured on our own 8-GPU machine; the benchmark and plotting code ships with the post.
+> Part 1 of **An Overview of Distributed Learning**. One post, one idea: **the six collective communication primitives, and why ring all-reduce costs each GPU exactly $$2\frac{N-1}{N}S$$ bytes.** Every number in this post was measured on our own 8-GPU machine; the benchmark and plotting code ships with the post.
 
 Every distributed training scheme — DDP, ZeRO, FSDP, TP, PP — decomposes, at the bottom, into different arrangements of the same six building blocks: the collective communication primitives. Every communication bill in the rest of this series will be denominated in these blocks. So the series starts by making the blocks themselves precise: **what each primitive does, how many bytes each GPU pays for it, and how fast those bytes actually move on real hardware.**
 
