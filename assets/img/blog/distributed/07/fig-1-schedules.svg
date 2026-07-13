@@ -1,0 +1,180 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 700" font-family="'JetBrains Mono','SFMono-Regular',Consolas,monospace">
+<rect width="960" height="700" fill="#0b0f19"/>
+<text x="480.0" y="28" font-size="14.5" fill="#d0dce8" text-anchor="middle" font-weight="bold">Three pipeline schedules, same 4 stages (F = forward, B = backward of one microbatch)</text>
+<text x="480.0" y="48" font-size="10.5" fill="#7a8899" text-anchor="middle" font-weight="normal">grey = idle = the bubble &#183; equal slot widths for clarity (real backward &#8776; 2&#215; forward)</text>
+<text x="328.0" y="80" font-size="12" fill="#d0dce8" text-anchor="middle" font-weight="bold">(a) naive model parallel (m = 1): one GPU works, three watch</text>
+<text x="108" y="112" font-size="9.5" fill="#7a8899" text-anchor="end" font-weight="normal">stage 0</text>
+<rect x="120" y="92" width="413" height="30" rx="3" fill="#131c2e" opacity="0.6"/>
+<text x="108" y="146" font-size="9.5" fill="#7a8899" text-anchor="end" font-weight="normal">stage 1</text>
+<rect x="120" y="126" width="413" height="30" rx="3" fill="#131c2e" opacity="0.6"/>
+<text x="108" y="180" font-size="9.5" fill="#7a8899" text-anchor="end" font-weight="normal">stage 2</text>
+<rect x="120" y="160" width="413" height="30" rx="3" fill="#131c2e" opacity="0.6"/>
+<text x="108" y="214" font-size="9.5" fill="#7a8899" text-anchor="end" font-weight="normal">stage 3</text>
+<rect x="120" y="194" width="413" height="30" rx="3" fill="#131c2e" opacity="0.6"/>
+<rect x="120" y="92" width="49" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="144.5" y="111.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F1</text>
+<rect x="172" y="126" width="49" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="196.5" y="145.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F1</text>
+<rect x="224" y="160" width="49" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="248.5" y="179.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F1</text>
+<rect x="276" y="194" width="49" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="300.5" y="213.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F1</text>
+<rect x="328" y="194" width="49" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="352.5" y="213.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B1</text>
+<rect x="380" y="160" width="49" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="404.5" y="179.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B1</text>
+<rect x="432" y="126" width="49" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="456.5" y="145.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B1</text>
+<rect x="484" y="92" width="49" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="508.5" y="111.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B1</text>
+<text x="328.0" y="244" font-size="9.5" fill="#7a8899" text-anchor="middle" font-weight="normal">bubble = 6/8 = (p&#8722;1)/(m+p&#8722;1) with m=1 &#8594; 75% idle</text>
+<text x="414.0" y="268" font-size="12" fill="#d0dce8" text-anchor="middle" font-weight="bold">(b) GPipe (m = 4): all forwards, then all backwards</text>
+<text x="108" y="300" font-size="9.5" fill="#7a8899" text-anchor="end" font-weight="normal">stage 0</text>
+<rect x="120" y="280" width="585" height="30" rx="3" fill="#131c2e" opacity="0.6"/>
+<text x="108" y="334" font-size="9.5" fill="#7a8899" text-anchor="end" font-weight="normal">stage 1</text>
+<rect x="120" y="314" width="585" height="30" rx="3" fill="#131c2e" opacity="0.6"/>
+<text x="108" y="368" font-size="9.5" fill="#7a8899" text-anchor="end" font-weight="normal">stage 2</text>
+<rect x="120" y="348" width="585" height="30" rx="3" fill="#131c2e" opacity="0.6"/>
+<text x="108" y="402" font-size="9.5" fill="#7a8899" text-anchor="end" font-weight="normal">stage 3</text>
+<rect x="120" y="382" width="585" height="30" rx="3" fill="#131c2e" opacity="0.6"/>
+<rect x="120" y="280" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="139.5" y="299.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F1</text>
+<rect x="162" y="314" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="181.5" y="333.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F1</text>
+<rect x="204" y="348" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="223.5" y="367.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F1</text>
+<rect x="246" y="382" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="265.5" y="401.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F1</text>
+<rect x="162" y="280" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="181.5" y="299.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F2</text>
+<rect x="204" y="314" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="223.5" y="333.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F2</text>
+<rect x="246" y="348" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="265.5" y="367.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F2</text>
+<rect x="288" y="382" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="307.5" y="401.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F2</text>
+<rect x="204" y="280" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="223.5" y="299.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F3</text>
+<rect x="246" y="314" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="265.5" y="333.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F3</text>
+<rect x="288" y="348" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="307.5" y="367.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F3</text>
+<rect x="330" y="382" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="349.5" y="401.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F3</text>
+<rect x="246" y="280" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="265.5" y="299.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F4</text>
+<rect x="288" y="314" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="307.5" y="333.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F4</text>
+<rect x="330" y="348" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="349.5" y="367.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F4</text>
+<rect x="372" y="382" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="391.5" y="401.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F4</text>
+<rect x="666" y="280" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="685.5" y="299.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B1</text>
+<rect x="624" y="314" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="643.5" y="333.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B1</text>
+<rect x="582" y="348" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="601.5" y="367.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B1</text>
+<rect x="540" y="382" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="559.5" y="401.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B1</text>
+<rect x="624" y="280" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="643.5" y="299.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B2</text>
+<rect x="582" y="314" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="601.5" y="333.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B2</text>
+<rect x="540" y="348" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="559.5" y="367.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B2</text>
+<rect x="498" y="382" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="517.5" y="401.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B2</text>
+<rect x="582" y="280" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="601.5" y="299.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B3</text>
+<rect x="540" y="314" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="559.5" y="333.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B3</text>
+<rect x="498" y="348" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="517.5" y="367.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B3</text>
+<rect x="456" y="382" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="475.5" y="401.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B3</text>
+<rect x="540" y="280" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="559.5" y="299.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B4</text>
+<rect x="498" y="314" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="517.5" y="333.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B4</text>
+<rect x="456" y="348" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="475.5" y="367.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B4</text>
+<rect x="414" y="382" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="433.5" y="401.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B4</text>
+<text x="414.0" y="432" font-size="9.5" fill="#7a8899" text-anchor="middle" font-weight="normal">bubble = 6/14 = (p&#8722;1)/(m+p&#8722;1) &#8776; 43% &#183; must hold ALL m activations &#8594; memory O(m)</text>
+<text x="414.0" y="456" font-size="12" fill="#d0dce8" text-anchor="middle" font-weight="bold">(c) 1F1B (m = 4): interleave one-forward-one-backward after warm-up</text>
+<text x="108" y="488" font-size="9.5" fill="#7a8899" text-anchor="end" font-weight="normal">stage 0</text>
+<rect x="120" y="468" width="585" height="30" rx="3" fill="#131c2e" opacity="0.6"/>
+<text x="108" y="522" font-size="9.5" fill="#7a8899" text-anchor="end" font-weight="normal">stage 1</text>
+<rect x="120" y="502" width="585" height="30" rx="3" fill="#131c2e" opacity="0.6"/>
+<text x="108" y="556" font-size="9.5" fill="#7a8899" text-anchor="end" font-weight="normal">stage 2</text>
+<rect x="120" y="536" width="585" height="30" rx="3" fill="#131c2e" opacity="0.6"/>
+<text x="108" y="590" font-size="9.5" fill="#7a8899" text-anchor="end" font-weight="normal">stage 3</text>
+<rect x="120" y="570" width="585" height="30" rx="3" fill="#131c2e" opacity="0.6"/>
+<rect x="120" y="468" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="139.5" y="487.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F1</text>
+<rect x="162" y="468" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="181.5" y="487.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F2</text>
+<rect x="204" y="468" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="223.5" y="487.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F3</text>
+<rect x="246" y="468" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="265.5" y="487.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F4</text>
+<rect x="414" y="468" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="433.5" y="487.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B1</text>
+<rect x="498" y="468" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="517.5" y="487.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B2</text>
+<rect x="582" y="468" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="601.5" y="487.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B3</text>
+<rect x="666" y="468" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="685.5" y="487.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B4</text>
+<rect x="162" y="502" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="181.5" y="521.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F1</text>
+<rect x="204" y="502" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="223.5" y="521.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F2</text>
+<rect x="246" y="502" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="265.5" y="521.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F3</text>
+<rect x="288" y="502" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="307.5" y="521.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F4</text>
+<rect x="372" y="502" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="391.5" y="521.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B1</text>
+<rect x="456" y="502" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="475.5" y="521.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B2</text>
+<rect x="540" y="502" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="559.5" y="521.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B3</text>
+<rect x="624" y="502" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="643.5" y="521.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B4</text>
+<rect x="204" y="536" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="223.5" y="555.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F1</text>
+<rect x="246" y="536" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="265.5" y="555.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F2</text>
+<rect x="330" y="536" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="349.5" y="555.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B1</text>
+<rect x="372" y="536" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="391.5" y="555.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F3</text>
+<rect x="414" y="536" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="433.5" y="555.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B2</text>
+<rect x="456" y="536" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="475.5" y="555.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F4</text>
+<rect x="498" y="536" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="517.5" y="555.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B3</text>
+<rect x="582" y="536" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="601.5" y="555.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B4</text>
+<rect x="246" y="570" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="265.5" y="589.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F1</text>
+<rect x="288" y="570" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="307.5" y="589.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B1</text>
+<rect x="330" y="570" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="349.5" y="589.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F2</text>
+<rect x="372" y="570" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="391.5" y="589.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B2</text>
+<rect x="414" y="570" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="433.5" y="589.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F3</text>
+<rect x="456" y="570" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="475.5" y="589.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B3</text>
+<rect x="498" y="570" width="39" height="30" rx="3" fill="#0099c4" opacity="0.92"/>
+<text x="517.5" y="589.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">F4</text>
+<rect x="540" y="570" width="39" height="30" rx="3" fill="#9085e9" opacity="0.92"/>
+<text x="559.5" y="589.0" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">B4</text>
+<text x="414.0" y="620" font-size="9.5" fill="#7a8899" text-anchor="middle" font-weight="normal">SAME bubble as GPipe &#183; but at most p microbatches in flight &#8594; memory O(p), independent of m</text>
+<text x="480.0" y="672" font-size="10.5" fill="#00c8ff" text-anchor="middle" font-weight="normal">the bubble is geometry, not implementation: it shrinks only by raising m (or interleaved/zero-bubble schedules, see text)</text>
+</svg>
