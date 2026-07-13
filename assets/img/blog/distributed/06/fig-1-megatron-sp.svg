@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 470" font-family="'JetBrains Mono','SFMono-Regular',Consolas,monospace">
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#00c8ff"/></marker></defs>
+<rect width="960" height="470" fill="#0b0f19"/>
+<text x="480.0" y="30" font-size="16" fill="#d0dce8" text-anchor="middle" font-weight="bold">Megatron-SP: split the all-reduce in SPACE (the identity's third appearance)</text>
+<text x="480.0" y="52" font-size="11" fill="#7a8899" text-anchor="middle" font-weight="normal">plain TP: activations enter/leave each block via all-reduce &#183; SP: = all-gather on entry + reduce-scatter on exit</text>
+<text x="70" y="126" font-size="12" fill="#e66767" text-anchor="start" font-weight="bold">TP only</text>
+<rect x="150" y="100" width="150" height="52" rx="6" fill="#9085e9" opacity="0.85"/>
+<text x="225.0" y="130" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">LN / dropout</text>
+<rect x="308" y="100" width="112" height="52" rx="6" fill="none" stroke="#00c8ff" stroke-width="1.8"/>
+<text x="364.0" y="130" font-size="9.5" fill="#00c8ff" text-anchor="middle" font-weight="bold">g: all-reduce</text>
+<rect x="428" y="100" width="190" height="52" rx="6" fill="#0099c4" opacity="0.85"/>
+<text x="523.0" y="130" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">attention / MLP (TP)</text>
+<rect x="626" y="100" width="112" height="52" rx="6" fill="none" stroke="#00c8ff" stroke-width="1.8"/>
+<text x="682.0" y="130" font-size="9.5" fill="#00c8ff" text-anchor="middle" font-weight="bold">g: all-reduce</text>
+<rect x="746" y="100" width="150" height="52" rx="6" fill="#9085e9" opacity="0.85"/>
+<text x="821.0" y="130" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">LN / dropout</text>
+<text x="225" y="170" font-size="9" fill="#e66767" text-anchor="middle" font-weight="normal">activations REPLICATED &#215;N</text>
+<text x="523" y="170" font-size="9" fill="#7a8899" text-anchor="middle" font-weight="normal">TP protects only this part</text>
+<text x="70" y="256" font-size="12" fill="#199e70" text-anchor="start" font-weight="bold">TP + SP</text>
+<rect x="150" y="230" width="150" height="52" rx="6" fill="#199e70" opacity="0.85"/>
+<text x="225.0" y="260" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">LN / dropout</text>
+<text x="225.0" y="300" font-size="9" fill="#199e70" text-anchor="middle" font-weight="normal">SHARDED [b,s/N,h]</text>
+<rect x="308" y="230" width="112" height="52" rx="6" fill="none" stroke="#c98500" stroke-width="1.8"/>
+<text x="364.0" y="260" font-size="9.5" fill="#c98500" text-anchor="middle" font-weight="bold">&#7511;: all-gather</text>
+<text x="364.0" y="300" font-size="9" fill="#7a8899" text-anchor="middle" font-weight="normal">gather s</text>
+<rect x="428" y="230" width="190" height="52" rx="6" fill="#0099c4" opacity="0.85"/>
+<text x="523.0" y="260" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">attention / MLP (TP)</text>
+<text x="523.0" y="300" font-size="9" fill="#199e70" text-anchor="middle" font-weight="normal">unchanged</text>
+<rect x="626" y="230" width="112" height="52" rx="6" fill="none" stroke="#c98500" stroke-width="1.8"/>
+<text x="682.0" y="260" font-size="9.5" fill="#c98500" text-anchor="middle" font-weight="bold">&#7511;&#773;: reduce-scatter</text>
+<text x="682.0" y="300" font-size="9" fill="#7a8899" text-anchor="middle" font-weight="normal">scatter+sum</text>
+<rect x="746" y="230" width="150" height="52" rx="6" fill="#199e70" opacity="0.85"/>
+<text x="821.0" y="260" font-size="10" fill="#0b0f19" text-anchor="middle" font-weight="bold">LN / dropout</text>
+<text x="821.0" y="300" font-size="9" fill="#199e70" text-anchor="middle" font-weight="normal">SHARDED [b,s/N,h]</text>
+<rect x="130" y="330" width="700" height="92" rx="8" fill="#131c2e" stroke="rgba(0,200,255,0.22)"/>
+<text x="480" y="356" font-size="10.5" fill="#d0dce8" text-anchor="middle" font-weight="normal">communication: all-reduce = all-gather + reduce-scatter (post #1) &#8594; SAME bytes, just placed on both sides</text>
+<text x="480" y="378" font-size="10.5" fill="#00c8ff" text-anchor="middle" font-weight="normal">memory: LN/dropout activations shrink from [b,s,h] to [b,s/N,h] &#8212; the last replicated activations disappear</text>
+<text x="480" y="402" font-size="10" fill="#7a8899" text-anchor="middle" font-weight="normal">ZeRO split the identity in TIME (update between the halves) &#183; SP splits it in SPACE (TP region between the halves)</text>
+</svg>

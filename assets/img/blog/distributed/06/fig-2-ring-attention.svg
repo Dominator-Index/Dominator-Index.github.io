@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" font-family="'JetBrains Mono','SFMono-Regular',Consolas,monospace">
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#00c8ff"/></marker></defs>
+<rect width="960" height="520" fill="#0b0f19"/>
+<text x="480.0" y="30" font-size="16" fill="#d0dce8" text-anchor="middle" font-weight="bold">Ring Attention (context parallelism): Q stays home, KV makes the round trip</text>
+<text x="480.0" y="52" font-size="10.5" fill="#7a8899" text-anchor="middle" font-weight="normal">each rank owns sequence chunk k (its Q_k, K_k, V_k) &#183; KV blocks travel the ring &#183; online softmax keeps exactness</text>
+<rect x="90" y="100" width="170" height="150" rx="10" fill="#131c2e" stroke="rgba(0,200,255,0.35)" stroke-width="1.3"/>
+<text x="102" y="120" font-size="10.5" fill="#7a8899" text-anchor="start" font-weight="normal">GPU 0</text>
+<rect x="104" y="132" width="60" height="34" rx="4" fill="#0099c4"/>
+<text x="134" y="153" font-size="11" fill="#0b0f19" text-anchor="middle" font-weight="bold">Q0</text>
+<text x="134" y="180" font-size="8.5" fill="#7a8899" text-anchor="middle" font-weight="normal">stays</text>
+<rect x="182" y="132" width="60" height="34" rx="4" fill="#c98500"/>
+<text x="212" y="153" font-size="11" fill="#0b0f19" text-anchor="middle" font-weight="bold">K,V</text>
+<text x="212" y="180" font-size="8.5" fill="#c98500" text-anchor="middle" font-weight="normal">travels &#8594;</text>
+<rect x="104" y="196" width="138" height="38" rx="4" fill="none" stroke="#199e70" stroke-width="1.4"/>
+<text x="173" y="213" font-size="9" fill="#199e70" text-anchor="middle" font-weight="bold">O, m, l accumulate</text>
+<text x="173" y="226" font-size="8" fill="#7a8899" text-anchor="middle" font-weight="normal">(online softmax)</text>
+<line x1="264" y1="149" x2="296" y2="149" stroke="#c98500" stroke-width="5.4" opacity="0.22" stroke-linecap="round"/>
+<line x1="264" y1="149" x2="296" y2="149" stroke="#c98500" stroke-width="1.8" marker-end="url(#arr)"/>
+<rect x="300" y="100" width="170" height="150" rx="10" fill="#131c2e" stroke="rgba(0,200,255,0.35)" stroke-width="1.3"/>
+<text x="312" y="120" font-size="10.5" fill="#7a8899" text-anchor="start" font-weight="normal">GPU 1</text>
+<rect x="314" y="132" width="60" height="34" rx="4" fill="#0099c4"/>
+<text x="344" y="153" font-size="11" fill="#0b0f19" text-anchor="middle" font-weight="bold">Q1</text>
+<text x="344" y="180" font-size="8.5" fill="#7a8899" text-anchor="middle" font-weight="normal">stays</text>
+<rect x="392" y="132" width="60" height="34" rx="4" fill="#c98500"/>
+<text x="422" y="153" font-size="11" fill="#0b0f19" text-anchor="middle" font-weight="bold">K,V</text>
+<text x="422" y="180" font-size="8.5" fill="#c98500" text-anchor="middle" font-weight="normal">travels &#8594;</text>
+<rect x="314" y="196" width="138" height="38" rx="4" fill="none" stroke="#199e70" stroke-width="1.4"/>
+<text x="383" y="213" font-size="9" fill="#199e70" text-anchor="middle" font-weight="bold">O, m, l accumulate</text>
+<text x="383" y="226" font-size="8" fill="#7a8899" text-anchor="middle" font-weight="normal">(online softmax)</text>
+<line x1="474" y1="149" x2="506" y2="149" stroke="#c98500" stroke-width="5.4" opacity="0.22" stroke-linecap="round"/>
+<line x1="474" y1="149" x2="506" y2="149" stroke="#c98500" stroke-width="1.8" marker-end="url(#arr)"/>
+<rect x="510" y="100" width="170" height="150" rx="10" fill="#131c2e" stroke="rgba(0,200,255,0.35)" stroke-width="1.3"/>
+<text x="522" y="120" font-size="10.5" fill="#7a8899" text-anchor="start" font-weight="normal">GPU 2</text>
+<rect x="524" y="132" width="60" height="34" rx="4" fill="#0099c4"/>
+<text x="554" y="153" font-size="11" fill="#0b0f19" text-anchor="middle" font-weight="bold">Q2</text>
+<text x="554" y="180" font-size="8.5" fill="#7a8899" text-anchor="middle" font-weight="normal">stays</text>
+<rect x="602" y="132" width="60" height="34" rx="4" fill="#c98500"/>
+<text x="632" y="153" font-size="11" fill="#0b0f19" text-anchor="middle" font-weight="bold">K,V</text>
+<text x="632" y="180" font-size="8.5" fill="#c98500" text-anchor="middle" font-weight="normal">travels &#8594;</text>
+<rect x="524" y="196" width="138" height="38" rx="4" fill="none" stroke="#199e70" stroke-width="1.4"/>
+<text x="593" y="213" font-size="9" fill="#199e70" text-anchor="middle" font-weight="bold">O, m, l accumulate</text>
+<text x="593" y="226" font-size="8" fill="#7a8899" text-anchor="middle" font-weight="normal">(online softmax)</text>
+<line x1="684" y1="149" x2="716" y2="149" stroke="#c98500" stroke-width="5.4" opacity="0.22" stroke-linecap="round"/>
+<line x1="684" y1="149" x2="716" y2="149" stroke="#c98500" stroke-width="1.8" marker-end="url(#arr)"/>
+<rect x="720" y="100" width="170" height="150" rx="10" fill="#131c2e" stroke="rgba(0,200,255,0.35)" stroke-width="1.3"/>
+<text x="732" y="120" font-size="10.5" fill="#7a8899" text-anchor="start" font-weight="normal">GPU 3</text>
+<rect x="734" y="132" width="60" height="34" rx="4" fill="#0099c4"/>
+<text x="764" y="153" font-size="11" fill="#0b0f19" text-anchor="middle" font-weight="bold">Q3</text>
+<text x="764" y="180" font-size="8.5" fill="#7a8899" text-anchor="middle" font-weight="normal">stays</text>
+<rect x="812" y="132" width="60" height="34" rx="4" fill="#c98500"/>
+<text x="842" y="153" font-size="11" fill="#0b0f19" text-anchor="middle" font-weight="bold">K,V</text>
+<text x="842" y="180" font-size="8.5" fill="#c98500" text-anchor="middle" font-weight="normal">travels &#8594;</text>
+<rect x="734" y="196" width="138" height="38" rx="4" fill="none" stroke="#199e70" stroke-width="1.4"/>
+<text x="803" y="213" font-size="9" fill="#199e70" text-anchor="middle" font-weight="bold">O, m, l accumulate</text>
+<text x="803" y="226" font-size="8" fill="#7a8899" text-anchor="middle" font-weight="normal">(online softmax)</text>
+<path d="M 892 120 C 950 70, 30 70, 86 140" fill="none" stroke="#c98500" stroke-width="1.8" marker-end="url(#arr)" opacity="0.85"/>
+<text x="480.0" y="76" font-size="9.5" fill="#7a8899" text-anchor="middle" font-weight="normal">N&#8722;1 hops &#183; each hop sends [2 &#183; s/N &#183; h] bytes &#183; can overlap with the block compute</text>
+<rect x="120" y="300" width="720" height="170" rx="8" fill="#131c2e" stroke="rgba(0,200,255,0.22)"/>
+<text x="480" y="326" font-size="11" fill="#00c8ff" text-anchor="middle" font-weight="bold">why chunked softmax is EXACT (not an approximation): carry running (m, l) and rescale</text>
+<text x="480" y="356" font-size="10.5" fill="#d0dce8" text-anchor="middle" font-weight="normal">m&#8342; = max(m&#8342;&#8331;&#8321;, rowmax(S&#8342;))        S&#8342; = Q K&#8342;&#7488;/&#8730;d</text>
+<text x="480" y="380" font-size="10.5" fill="#d0dce8" text-anchor="middle" font-weight="normal">l&#8342; = l&#8342;&#8331;&#8321;&#183;e^(m&#8342;&#8331;&#8321;&#8722;m&#8342;) + &#931; e^(S&#8342;&#8722;m&#8342;)</text>
+<text x="480" y="404" font-size="10.5" fill="#d0dce8" text-anchor="middle" font-weight="normal">O&#8342; = O&#8342;&#8331;&#8321;&#183;e^(m&#8342;&#8331;&#8321;&#8722;m&#8342;) + e^(S&#8342;&#8722;m&#8342;) V&#8342;        final: O/l</text>
+<text x="480" y="434" font-size="10" fill="#7a8899" text-anchor="middle" font-weight="normal">the same trick that powers FlashAttention&#8217;s tiling &#8212; CP just runs the tiles on different GPUs</text>
+<text x="480" y="454" font-size="10" fill="#199e70" text-anchor="middle" font-weight="normal">attention is the ONLY place tokens interact &#8212; everything else (LN, MLP) is token-local and needs no comm under CP</text>
+</svg>
