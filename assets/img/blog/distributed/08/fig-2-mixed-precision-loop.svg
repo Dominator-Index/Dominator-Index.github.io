@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 560" font-family="'JetBrains Mono','SFMono-Regular',Consolas,monospace">
+<rect width="960" height="560" fill="#0b0f19"/>
+<defs><marker id="ag" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#00c8ff"/></marker><marker id="at" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#7a8899"/></marker></defs>
+<text x="480.0" y="30" font-size="15" fill="#d0dce8" text-anchor="middle" font-weight="bold">One training step in bf16 mixed precision: FLOW runs bf16, STATE stays fp32</text>
+<rect x="40" y="66" width="450" height="400" rx="10" fill="rgba(0,153,196,0.05)" stroke="#0099c4" stroke-width="1.2" opacity="1.0" stroke-dasharray="6 5"/>
+<text x="70" y="92" font-size="13" fill="#0099c4" text-anchor="start" font-weight="bold">FLOW — bf16</text>
+<text x="70" y="108" font-size="9.5" fill="#7a8899" text-anchor="start" font-weight="normal">per-token traffic: cheap &#215; huge volume</text>
+<rect x="510" y="66" width="410" height="400" rx="10" fill="rgba(201,133,0,0.05)" stroke="#c98500" stroke-width="1.2" opacity="1.0" stroke-dasharray="6 5"/>
+<text x="540" y="92" font-size="13" fill="#c98500" text-anchor="start" font-weight="bold">STATE — fp32</text>
+<text x="540" y="108" font-size="9.5" fill="#7a8899" text-anchor="start" font-weight="normal">per-param ledger: tiny additions must survive</text>
+<rect x="70" y="130" width="200" height="46" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.5" opacity="1.0"/>
+<text x="170" y="149" font-size="11.5" fill="#d0dce8" text-anchor="middle" font-weight="bold">bf16 params  2Ψ</text>
+<text x="170" y="165" font-size="9" fill="#7a8899" text-anchor="middle" font-weight="normal">the compute projection</text>
+<rect x="70" y="226" width="390" height="74" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.5" opacity="1.0"/>
+<text x="265" y="246" font-size="11.5" fill="#d0dce8" text-anchor="middle" font-weight="bold">forward + backward — every matmul in bf16</text>
+<text x="265" y="264" font-size="10" fill="#00c8ff" text-anchor="middle" font-weight="normal">Tensor Core: bf16 &#215; bf16 &#8594; fp32 accumulator Σ &#8594; bf16 out</text>
+<text x="265" y="280" font-size="9" fill="#7a8899" text-anchor="middle" font-weight="normal">activations stored bf16 &#183; LayerNorm/softmax/loss internally fp32</text>
+<rect x="70" y="350" width="200" height="46" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.5" opacity="1.0"/>
+<text x="170" y="369" font-size="11.5" fill="#d0dce8" text-anchor="middle" font-weight="bold">bf16 grads</text>
+<text x="170" y="385" font-size="9" fill="#7a8899" text-anchor="middle" font-weight="normal">what backward writes out</text>
+<line x1="170" y1="176" x2="170" y2="224" stroke="#7a8899" stroke-width="4.5" opacity="0.18"/>
+<line x1="170" y1="176" x2="170" y2="224" stroke="#7a8899" stroke-width="1.5" marker-end="url(#at)"/>
+<line x1="170" y1="300" x2="170" y2="348" stroke="#7a8899" stroke-width="4.5" opacity="0.18"/>
+<line x1="170" y1="300" x2="170" y2="348" stroke="#7a8899" stroke-width="1.5" marker-end="url(#at)"/>
+<rect x="560" y="350" width="310" height="46" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.5" opacity="1.0"/>
+<text x="715" y="369" font-size="11.5" fill="#d0dce8" text-anchor="middle" font-weight="bold">fp32 grad buffer  2Ψ|4Ψ</text>
+<text x="715" y="385" font-size="9" fill="#7a8899" text-anchor="middle" font-weight="normal">micro-batch accumulation adds in fp32</text>
+<rect x="560" y="226" width="310" height="74" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.5" opacity="1.0"/>
+<text x="715" y="246" font-size="11.5" fill="#d0dce8" text-anchor="middle" font-weight="bold">optimizer step — all fp32</text>
+<text x="715" y="264" font-size="10" fill="#7a8899" text-anchor="middle" font-weight="normal">Adam m 4Ψ + v 4Ψ; update Δ hits the master</text>
+<text x="715" y="280" font-size="9" fill="#e66767" text-anchor="middle" font-weight="normal">|Δ| ~ 1e-3..1e-5 of |w| — needs 23 mantissa bits</text>
+<rect x="560" y="130" width="310" height="46" rx="8" fill="#131c2e" stroke="#00c8ff" stroke-width="1.5" opacity="1.0"/>
+<text x="715" y="149" font-size="11.5" fill="#d0dce8" text-anchor="middle" font-weight="bold">fp32 master params  4Ψ</text>
+<text x="715" y="165" font-size="9" fill="#7a8899" text-anchor="middle" font-weight="normal">the real weights; never do matmuls</text>
+<line x1="715" y1="348" x2="715" y2="302" stroke="#7a8899" stroke-width="4.5" opacity="0.18"/>
+<line x1="715" y1="348" x2="715" y2="302" stroke="#7a8899" stroke-width="1.5" marker-end="url(#at)"/>
+<line x1="715" y1="224" x2="715" y2="178" stroke="#7a8899" stroke-width="4.5" opacity="0.18"/>
+<line x1="715" y1="224" x2="715" y2="178" stroke="#7a8899" stroke-width="1.5" marker-end="url(#at)"/>
+<line x1="272" y1="373" x2="558" y2="373" stroke="#00c8ff" stroke-width="6" opacity="0.18"/>
+<line x1="272" y1="373" x2="558" y2="373" stroke="#00c8ff" stroke-width="2" marker-end="url(#ag)"/>
+<text x="415" y="362" font-size="10.5" fill="#00c8ff" text-anchor="middle" font-weight="bold">cast UP — lossless</text>
+<text x="415" y="390" font-size="9" fill="#7a8899" text-anchor="middle" font-weight="normal">pad 16 zero bits</text>
+<line x1="558" y1="153" x2="272" y2="153" stroke="#00c8ff" stroke-width="6" opacity="0.18"/>
+<line x1="558" y1="153" x2="272" y2="153" stroke="#00c8ff" stroke-width="2" marker-end="url(#ag)"/>
+<text x="415" y="142" font-size="10.5" fill="#00c8ff" text-anchor="middle" font-weight="bold">cast DOWN — round to 7 mantissa bits</text>
+<text x="415" y="170" font-size="9" fill="#7a8899" text-anchor="middle" font-weight="normal">regenerated every step; the only lossy hop</text>
+<rect x="60" y="486" width="840" height="52" rx="8" fill="#131c2e" stroke="#7a8899" stroke-width="1" opacity="0.7"/>
+<text x="480" y="508" font-size="11" fill="#d0dce8" text-anchor="middle" font-weight="normal">the ledger, finally itemized:  2Ψ bf16 params + 4Ψ master + 4Ψ m + 4Ψ v + grads (bf16 2Ψ | fp32 4Ψ)</text>
+<text x="480" y="526" font-size="10" fill="#7a8899" text-anchor="middle" font-weight="normal">= 16Ψ or 18Ψ per parameter — post #0's number; which one you pay = which precision holds the gradient accumulation</text>
+</svg>
