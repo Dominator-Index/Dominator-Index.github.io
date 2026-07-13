@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 500" font-family="'JetBrains Mono','SFMono-Regular',Consolas,monospace">
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#00c8ff"/></marker></defs>
+<rect width="960" height="500" fill="#0b0f19"/>
+<text x="480.0" y="30" font-size="16.5" fill="#d0dce8" text-anchor="middle" font-weight="bold">One FSDP2 step: gather on demand, prefetch ahead, reshard behind</text>
+<text x="480.0" y="52" font-size="11" fill="#7a8899" text-anchor="middle" font-weight="normal">unit = one transformer block &#183; AG = all-gather params (bf16) &#183; RS = reduce-scatter grads (fp32)</text>
+<text x="550.0" y="80" font-size="11.5" fill="#0099c4" text-anchor="middle" font-weight="bold">forward</text>
+<text x="176" y="106" font-size="11" fill="#d0dce8" text-anchor="end" font-weight="normal">compute</text>
+<line x1="190" y1="130" x2="910" y2="130" stroke="rgba(0,200,255,0.15)"/>
+<rect x="262.0" y="86" width="111.0" height="32" rx="4" fill="#0099c4" opacity="0.9"/>
+<text x="319.0" y="105.5" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">fwd blk1</text>
+<rect x="382.0" y="86" width="111.0" height="32" rx="4" fill="#0099c4" opacity="0.9"/>
+<text x="439.0" y="105.5" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">fwd blk2</text>
+<rect x="502.0" y="86" width="111.0" height="32" rx="4" fill="#0099c4" opacity="0.9"/>
+<text x="559.0" y="105.5" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">fwd blk3</text>
+<rect x="622.0" y="86" width="111.0" height="32" rx="4" fill="#0099c4" opacity="0.9"/>
+<text x="679.0" y="105.5" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">fwd blk4</text>
+<text x="176" y="162" font-size="11" fill="#d0dce8" text-anchor="end" font-weight="normal">NCCL</text>
+<text x="176" y="178" font-size="9" fill="#7a8899" text-anchor="end" font-weight="normal">stream</text>
+<line x1="190" y1="186" x2="910" y2="186" stroke="rgba(0,200,255,0.15)"/>
+<rect x="190.0" y="142" width="63.0" height="32" rx="4" fill="#199e70" opacity="0.9"/>
+<text x="223.0" y="161.5" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">AG1</text>
+<rect x="262.0" y="142" width="63.0" height="32" rx="4" fill="#199e70" opacity="0.9"/>
+<text x="295.0" y="161.5" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">AG2</text>
+<rect x="382.0" y="142" width="63.0" height="32" rx="4" fill="#199e70" opacity="0.9"/>
+<text x="415.0" y="161.5" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">AG3</text>
+<rect x="502.0" y="142" width="63.0" height="32" rx="4" fill="#199e70" opacity="0.9"/>
+<text x="535.0" y="161.5" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">AG4</text>
+<text x="310.0" y="204" font-size="9.5" fill="#7a8899" text-anchor="start" font-weight="normal">prefetch: AG of block k+1 runs UNDER fwd of block k &#8594; only AG1 is exposed</text>
+<text x="310.0" y="220" font-size="9.5" fill="#e66767" text-anchor="start" font-weight="normal">red tick = reshard: free the gathered full params (ZeRO-3 semantics)</text>
+<line x1="376.0" y1="120" x2="376.0" y2="136" stroke="#e66767" stroke-width="2"/>
+<line x1="496.0" y1="120" x2="496.0" y2="136" stroke="#e66767" stroke-width="2"/>
+<line x1="616.0" y1="120" x2="616.0" y2="136" stroke="#e66767" stroke-width="2"/>
+<text x="550.0" y="244" font-size="11.5" fill="#9085e9" text-anchor="middle" font-weight="bold">backward (reverse order)</text>
+<text x="176" y="270" font-size="11" fill="#d0dce8" text-anchor="end" font-weight="normal">compute</text>
+<line x1="190" y1="294" x2="910" y2="294" stroke="rgba(0,200,255,0.15)"/>
+<rect x="262.0" y="250" width="123.0" height="32" rx="4" fill="#0099c4" opacity="0.9"/>
+<text x="325.0" y="269.5" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">bwd blk4</text>
+<rect x="394.0" y="250" width="123.0" height="32" rx="4" fill="#0099c4" opacity="0.9"/>
+<text x="457.0" y="269.5" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">bwd blk3</text>
+<rect x="526.0" y="250" width="123.0" height="32" rx="4" fill="#0099c4" opacity="0.9"/>
+<text x="589.0" y="269.5" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">bwd blk2</text>
+<rect x="658.0" y="250" width="123.0" height="32" rx="4" fill="#0099c4" opacity="0.9"/>
+<text x="721.0000000000001" y="269.5" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">bwd blk1</text>
+<text x="176" y="326" font-size="11" fill="#d0dce8" text-anchor="end" font-weight="normal">NCCL</text>
+<text x="176" y="342" font-size="9" fill="#7a8899" text-anchor="end" font-weight="normal">stream</text>
+<line x1="190" y1="350" x2="910" y2="350" stroke="rgba(0,200,255,0.15)"/>
+<rect x="190.0" y="306" width="63.0" height="32" rx="4" fill="#199e70" opacity="0.9"/>
+<text x="223.0" y="325.5" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">AG4</text>
+<rect x="262.0" y="306" width="63.0" height="32" rx="4" fill="#199e70" opacity="0.9"/>
+<text x="295.0" y="325.5" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">AG3</text>
+<rect x="394.0" y="306" width="63.0" height="32" rx="4" fill="#199e70" opacity="0.9"/>
+<text x="427.0" y="325.5" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">AG2</text>
+<rect x="526.0" y="306" width="63.0" height="32" rx="4" fill="#199e70" opacity="0.9"/>
+<text x="559.0" y="325.5" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">AG1</text>
+<rect x="334.0" y="306" width="57.0" height="32" rx="4" fill="#9085e9" opacity="0.9"/>
+<text x="364.0" y="325.5" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">RS4</text>
+<rect x="466.0" y="306" width="57.0" height="32" rx="4" fill="#9085e9" opacity="0.9"/>
+<text x="496.0" y="325.5" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">RS3</text>
+<rect x="598.0" y="306" width="57.0" height="32" rx="4" fill="#9085e9" opacity="0.9"/>
+<text x="628.0" y="325.5" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">RS2</text>
+<rect x="730.0" y="306" width="57.0" height="32" rx="4" fill="#9085e9" opacity="0.9"/>
+<text x="760.0" y="325.5" font-size="9.5" fill="#0b0f19" text-anchor="middle" font-weight="bold">RS1</text>
+<text x="262.0" y="368" font-size="9.5" fill="#7a8899" text-anchor="start" font-weight="normal">backward needs the params AGAIN (they were resharded) &#8594; re-AG each block, then RS its grads</text>
+<rect x="190" y="398" width="720" height="66" rx="8" fill="#131c2e" stroke="rgba(0,200,255,0.2)"/>
+<text x="550.0" y="422" font-size="10.5" fill="#d0dce8" text-anchor="middle" font-weight="normal">reshard_after_forward=False (ZeRO-2 semantics): skip the red ticks, keep full params until backward</text>
+<text x="550.0" y="442" font-size="10.5" fill="#00c8ff" text-anchor="middle" font-weight="normal">&#8594; backward re-AG disappears, memory floor rises by one full bf16 model &#8212; measured in &#167;4</text>
+</svg>
