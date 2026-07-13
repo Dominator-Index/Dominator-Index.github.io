@@ -1,15 +1,15 @@
 """
-ZeRO 实验(《图解分布式训练》第 03 篇):deepspeed stage 0/1/2/3 每卡显存 + 吞吐。
+ZeRO experiments (Distributed Training Illustrated, post 03): deepspeed stage 0/1/2/3 per-GPU memory + throughput.
 
-模型:GPT-2 Large(770M,Ψ=0.77e9),bf16 训练 + fp32 优化器状态。
-理论账本(每卡,8 卡,字节):
-  stage 0: 2Ψ(bf16参数) + 2Ψ(bf16梯度) + 12Ψ(fp32 master+m+v)      = 16Ψ ≈ 12.3 GB
-  stage 1: 2Ψ + 2Ψ + 12Ψ/8                                          ≈  4.6 GB
-  stage 2: 2Ψ + 2Ψ/8 + 12Ψ/8                                        ≈  2.9 GB
-  stage 3: 2Ψ/8 + 2Ψ/8 + 12Ψ/8                                      ≈  1.5 GB
-(另加激活等;用 post-step 常驻显存对账,峰值另记)
+Model: GPT-2 Large (770M, Psi=0.77e9), bf16 training + fp32 optimizer state.
+Theoretical ledger (per GPU, 8 GPUs, bytes):
+  stage 0: 2Psi (bf16 params) + 2Psi (bf16 grads) + 12Psi (fp32 master+m+v)  = 16Psi ~ 12.3 GB
+  stage 1: 2Psi + 2Psi + 12Psi/8                                             ~  4.6 GB
+  stage 2: 2Psi + 2Psi/8 + 12Psi/8                                           ~  2.9 GB
+  stage 3: 2Psi/8 + 2Psi/8 + 12Psi/8                                         ~  1.5 GB
+(activations etc. come on top, we reconcile against post-step resident memory and record peak separately)
 
-用法:
+Usage:
   deepspeed --num_gpus=8 bench_zero.py --stage {0,1,2,3} --out ../results/zero.csv
 """
 
@@ -52,7 +52,7 @@ def main():
     torch.manual_seed(1337)
     model = GPT(GPTConfig(n_layer=36, n_head=20, n_embd=1280, dropout=0.0))
     n_params = sum(p.numel() for p in model.parameters())
-    # 传 torch AdamW 实例,避开 deepspeed FusedAdam 的 JIT 编译(本机编译器不兼容)
+    # Pass a torch AdamW instance to avoid deepspeed FusedAdam's JIT build (local compiler is incompatible)
     opt = torch.optim.AdamW(model.parameters(), lr=3e-4, betas=(0.9, 0.95), weight_decay=0.1)
     engine, _, _, _ = deepspeed.initialize(model=model, optimizer=opt, config=ds_config)
     rank = engine.global_rank
@@ -77,7 +77,7 @@ def main():
     torch.cuda.synchronize()
     dt = (time.perf_counter() - t0) / STEPS
     peak = torch.cuda.max_memory_allocated() / 2**30
-    resident = torch.cuda.memory_allocated() / 2**30  # step 之后的常驻(参数+梯度buf+优化器状态)
+    resident = torch.cuda.memory_allocated() / 2**30  # resident after the step (params + grad buffers + optimizer state)
 
     tps = MBS * BLOCK * world / dt / 1e3
     if rank == 0:

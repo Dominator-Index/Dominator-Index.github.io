@@ -1,4 +1,4 @@
-"""第 01 篇实验结果图。数据:../results/collectives_n{2,4,8}.csv"""
+"""Result plots for post 01. Data: ../results/collectives_n{2,4,8}.csv"""
 
 import csv
 import pathlib
@@ -24,9 +24,9 @@ def load(n):
 
 apply()
 
-# ---- fig 4: 六原语 busbw vs S (N=8) --------------------------------------
+# ---- fig 4: six primitives, busbw vs S (N=8) -----------------------------
 data = load(8)
-ops = [  # (op, label, color) 语义色:主角 all_reduce = s1
+ops = [  # (op, label, color) semantic colors: the protagonist all_reduce = s1
     ("all_reduce", "all-reduce", SERIES[0]),
     ("all_gather", "all-gather", SERIES[3]),
     ("reduce_scatter", "reduce-scatter", SERIES[2]),
@@ -54,7 +54,7 @@ ax.annotate("scatter/gather: one-way flows\nout of / into the root",
 ax.legend(ncol=2, loc="upper left")
 save(fig, FIG / "fig-4-primitives-busbw")
 
-# ---- fig 5: all-reduce 的 algbw vs busbw,N=2/4/8 -------------------------
+# ---- fig 5: all-reduce algbw vs busbw, N=2/4/8 ----------------------------
 fig, axes = plt.subplots(1, 2, figsize=(10.5, 4.4), sharex=True)
 for i, (key, title, ylab) in enumerate([
         ("algbw_GBps", "what you feel: algorithm bandwidth S/t", "algorithm bandwidth (GB/s)"),
@@ -76,7 +76,7 @@ axes[1].annotate("collapses to one curve:\nthe 2(N−1)/N factor is real",
 fig.suptitle("All-reduce across 2 / 4 / 8 GPUs", fontsize=13, fontweight="bold")
 save(fig, FIG / "fig-5-allreduce-scaling")
 
-# ---- fig 6: 延迟地板(时间 vs S, log-log) --------------------------------
+# ---- fig 6: the latency floor (time vs S, log-log) ------------------------
 fig, ax = plt.subplots(figsize=(8.2, 4.4))
 for j, n in enumerate([2, 4, 8]):
     rows = [r for r in load(n) if r["op"] == "all_reduce"]

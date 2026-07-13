@@ -1,4 +1,4 @@
-"""RMNP vs Muon 独立篇示意图:fig-1 算子视野×切分几何,fig-2 通信账本。"""
+"""RMNP vs Muon standalone post schematics: fig-1 operator locality x shard geometry, fig-2 the communication ledger."""
 
 import os
 
@@ -44,7 +44,7 @@ def arrow(x1, y1, x2, y2, color=GLOW, sw=2, marker="ag"):
 
 
 def sharded_matrix(x0, y0, w, h, n_shards=4, label=True):
-    """FSDP2 行分片矩阵:n_shards 个行块,每块标 GPU k。返回 (svg, 块高)。"""
+    """FSDP2 row-sharded matrix: n_shards row blocks, each labeled GPU k. Returns (svg, block height)."""
     s = ""
     bh = h / n_shards
     for k in range(n_shards):
@@ -63,12 +63,12 @@ def fig1():
 
     mw, mh = 280, 240
 
-    # ---- 左:RMNP ----
+    # ---- left: RMNP ----
     lx, ly = 110, 110
     s += text(lx + mw / 2, 96, "RMNP: update row i = M&#7522; / &#8214;M&#7522;&#8214;", 12.5, S[3], weight="bold")
     m_svg, bh = sharded_matrix(lx, ly, mw, mh)
     s += m_svg
-    # 高亮 GPU1 里的一行(只画视觉,不加行内文字)
+    # highlight one row inside GPU1 (visual only, no inline text)
     ry = ly + bh + 14
     s += f'<rect x="{lx + 6}" y="{ry}" width="{mw - 12}" height="10" rx="3" fill="{S[3]}" opacity="0.9"/>\n'
     s += arrow(lx + 20, ry + 5, lx + mw - 20, ry + 5, S[3], 1.6, "ag")
@@ -78,12 +78,12 @@ def fig1():
     s += text(lx + mw / 2, ly + mh + 84, "communication: 0 bytes", 12.5, S[3], weight="bold")
     s += text(lx + mw / 2, ly + mh + 104, "compute O(mn) elementwise, load-balanced by construction", 9, TEXT2)
 
-    # ---- 右:Muon ----
+    # ---- right: Muon ----
     rx_, ry_ = 570, 110
     s += text(rx_ + mw / 2, 96, "Muon: update = NS(M) &#8776; UV&#7488;", 12.5, S[1], weight="bold")
     m_svg, bh = sharded_matrix(rx_, ry_, mw, mh)
     s += m_svg
-    # 跨 GPU 的行行耦合箭头(A = XX^T)
+    # arrows showing row-row coupling across GPUs (A = XX^T)
     y_a = ry_ + bh * 0.5
     y_b = ry_ + bh * 2.5
     y_c = ry_ + bh * 3.5

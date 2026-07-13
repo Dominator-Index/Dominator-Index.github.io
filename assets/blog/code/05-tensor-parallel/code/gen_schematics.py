@@ -1,4 +1,4 @@
-"""第 05 篇示意图:Column×Row 黄金搭档 + 为什么顺序不能反。"""
+"""Part 05 schematics: the Column×Row golden pair + why the order cannot flip."""
 
 import os
 
@@ -34,7 +34,7 @@ def arrow(x1, y1, x2, y2, color=GLOW, width=1.6):
 
 
 def mat(x, y, w, h, color, label="", sub="", split=None, op=0.9):
-    """split: ('h', frac) 水平切 or ('v', frac) 垂直切,two-tone 表示两个 rank。"""
+    """split: ('h', frac) horizontal cut or ('v', frac) vertical cut, two-tone marks the two ranks."""
     out = ""
     if split is None:
         out += f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="5" fill="{color}" opacity="{op}"/>\n'
@@ -51,7 +51,7 @@ def mat(x, y, w, h, color, label="", sub="", split=None, op=0.9):
     return out
 
 
-# ---- fig 1: 黄金搭档 -------------------------------------------------------
+# ---- fig 1: the golden pair ------------------------------------------------
 def fig1():
     W, H = 960, 460
     s = svg_open(W, H)
@@ -105,7 +105,7 @@ def fig1():
     return s
 
 
-# ---- fig 2: 为什么顺序不能反 -----------------------------------------------
+# ---- fig 2: why the order cannot flip ---------------------------------------
 def fig2():
     W, H = 960, 330
     s = svg_open(W, H)

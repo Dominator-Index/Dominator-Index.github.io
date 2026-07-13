@@ -1,13 +1,16 @@
 """
-TP 实验(《图解分布式训练》第 05 篇):手写 Megatron 式 Column+Row 并行 MLP。
+TP experiment (part 05 of the Illustrated Distributed Training series): a hand-written
+Megatron-style Column+Row parallel MLP.
 
-验证两件事:
-  1. 正确性:Column 切(fc1)+ Row 切(fc2)的 MLP,前向输出与反向梯度
-     和单卡完全一致(fp64 下逐位,bf16 下到舍入误差)——"中间零通信"不是近似
-  2. 代价:每层前向 1 次 all-reduce(g 算子),反向 1 次(f 算子);
-     实测 TP=2/4/8 的每层时间分解(计算 vs 通信)
+Verifies two things:
+  1. Correctness: an MLP with Column-cut fc1 + Row-cut fc2 matches the single-GPU
+     forward output and backward gradients exactly (bit-for-bit in fp64, up to
+     rounding in bf16). "Zero communication in the middle" is not an approximation.
+  2. Cost: 1 all-reduce per layer in forward (the g operator), 1 in backward
+     (the f operator). Measures the per-layer time breakdown (compute vs comm)
+     for TP=2/4/8.
 
-用法:
+Usage:
   torchrun --standalone --nproc_per_node={2,4,8} bench_tp.py --out ../results/tp.csv
 """
 
@@ -20,7 +23,7 @@ import torch
 import torch.distributed as dist
 import torch.nn.functional as F
 
-H = 1280               # hidden(GPT-2 Large 口径)
+H = 1280               # hidden size (GPT-2 Large scale)
 FF = 4 * H             # 5120
 MBS, SEQ = 4, 1024
 WARMUP, STEPS = 20, 50
@@ -38,39 +41,39 @@ def main():
     device = torch.device("cuda", local_rank)
     dist.init_process_group("nccl", device_id=device)
 
-    torch.manual_seed(1337)  # 所有 rank 同种子 → 权重一致
-    # 完整权重(fp32 保证可对账)
+    torch.manual_seed(1337)  # same seed on every rank so weights match
+    # full weights (fp32 so results can be reconciled exactly)
     W1 = torch.randn(FF, H, device=device) / H**0.5      # fc1 [out=FF, in=H]
     W2 = torch.randn(H, FF, device=device) / FF**0.5     # fc2 [out=H, in=FF]
     X = torch.randn(MBS * SEQ, H, device=device, requires_grad=True)
 
-    # ---- 单卡参考 ----
+    # ---- single-GPU reference ----
     ref = F.gelu(X @ W1.t()) @ W2.t()
     ref_loss = ref.square().mean()
     ref_loss.backward()
     ref_grad = X.grad.clone()
     X.grad = None
 
-    # ---- TP:Column 切 W1(沿 out 维),Row 切 W2(沿 in 维) ----
+    # ---- TP: Column-cut W1 (along out dim), Row-cut W2 (along in dim) ----
     shard = FF // world
-    W1_k = W1[rank * shard:(rank + 1) * shard]            # [FF/N, H] 完整的行
-    W2_k = W2[:, rank * shard:(rank + 1) * shard]         # [H, FF/N] 列切
+    W1_k = W1[rank * shard:(rank + 1) * shard]            # [FF/N, H] whole rows
+    W2_k = W2[:, rank * shard:(rank + 1) * shard]         # [H, FF/N] column slice
 
     Xtp = X.detach().clone().requires_grad_(True)
-    # 前向:f 算子 = identity(X 已复制);中间 Y_k 本地;g 算子 = all-reduce
-    Y_k = F.gelu(Xtp @ W1_k.t())                          # [B, FF/N] 中间激活:零通信
-    Z_k = Y_k @ W2_k.t()                                  # [B, H] 部分和
+    # forward: f operator = identity (X already replicated), intermediate Y_k local, g operator = all-reduce
+    Y_k = F.gelu(Xtp @ W1_k.t())                          # [B, FF/N] intermediate activation: zero comm
+    Z_k = Y_k @ W2_k.t()                                  # [B, H] partial sum
     Z = Z_k.clone()
-    dist.all_reduce(Z)                                    # g:前向唯一一次通信
+    dist.all_reduce(Z)                                    # g: the only forward comm
     loss = Z.square().mean()
-    loss.backward()                                       # 反向:dX 是部分和
+    loss.backward()                                       # backward: dX is a partial sum
     gX = Xtp.grad.clone()
-    dist.all_reduce(gX)                                   # f 的反向:all-reduce dX
+    dist.all_reduce(gX)                                   # f's backward: all-reduce dX
 
     fwd_err = (Z - ref).abs().max().item()
     grad_err = (gX - ref_grad).abs().max().item()
 
-    # ---- 计时:分解计算与通信 ----
+    # ---- timing: break down compute vs communication ----
     def timed(fn):
         s, e = torch.cuda.Event(True), torch.cuda.Event(True)
         dist.barrier(); torch.cuda.synchronize()

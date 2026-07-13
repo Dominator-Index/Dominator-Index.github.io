@@ -1,4 +1,4 @@
-"""第 02 篇示意图:DP 结构 + DDP 分桶/重叠时间线。"""
+"""Schematics for post 02: DP structure plus the DDP bucketing/overlap timeline."""
 
 import os
 
@@ -34,7 +34,7 @@ def arrow(x1, y1, x2, y2, color=GLOW, width=1.6, dash=False):
                    f'stroke-width="{width}" marker-end="url(#arr)"{d}/>\n')
 
 
-# ------------------------------------------------ fig 1: DP 一步的结构
+# ------------------------------------------------ fig 1: one DP step
 def fig1():
     W, H = 960, 500
     s = svg_open(W, H)
@@ -71,7 +71,7 @@ def fig1():
     return s
 
 
-# ------------------------------------------------ fig 2: 分桶 + 重叠时间线
+# ------------------------------------------------ fig 2: bucketing + overlap timeline
 def fig2():
     W, H = 960, 560
     s = svg_open(W, H)
@@ -94,7 +94,7 @@ def fig2():
             out += text(x0 + (x + w / 2) * t_unit, y + h / 2 + 4, label, 10, "#0b0f19", weight="bold")
         return out
 
-    # ---- panel A: 无重叠(整模型一个桶)
+    # ---- panel A: no overlap (whole model in one bucket)
     s += text(x0 + lane_w / 2, 92, "(a) one giant bucket = no overlap: comm waits for the whole backward", 12, S[1], weight="bold")
     yA = 108
     s += lane(yA, "compute", "stream")
@@ -107,7 +107,7 @@ def fig2():
     s += f'<line x1="{x0}" y1="{yA + 118}" x2="{x0 + 9.2 * t_unit}" y2="{yA + 118}" stroke="{TEXT2}" stroke-width="1" marker-end="url(#arr)"/>\n'
     s += text(x0 + 4.6 * t_unit, yA + 134, "step time = backward + FULL all-reduce", 10, TEXT2)
 
-    # ---- panel B: 分桶重叠
+    # ---- panel B: bucketed overlap
     s += text(x0 + lane_w / 2, 300, "(b) buckets: gradients for later layers fly while earlier layers still compute", 12, S[3], weight="bold")
     yB = 316
     s += lane(yB, "compute", "stream")

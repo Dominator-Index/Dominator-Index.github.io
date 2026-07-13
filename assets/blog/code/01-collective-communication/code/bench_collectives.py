@@ -1,18 +1,18 @@
 """
-集合通信原语基准测试(《图解分布式训练》第 01 篇)。
+Collective communication primitive benchmark (Distributed Training Illustrated, post 01).
 
-测 6 种原语:broadcast / scatter / gather / all_gather / reduce_scatter / all_reduce
-口径(与正文一致):
-  - S = 逻辑消息大小(完整张量的字节数)
-  - algbw = S / t                          (算法带宽,"用户视角")
-  - busbw = algbw × 校正因子               (总线带宽,"硬件视角",nccl-tests 口径)
+Benchmarks 6 primitives: broadcast / scatter / gather / all_gather / reduce_scatter / all_reduce
+Conventions (matching the post):
+  - S = logical message size (bytes of the full tensor)
+  - algbw = S / t                          (algorithm bandwidth, the "user view")
+  - busbw = algbw x correction factor      (bus bandwidth, the "hardware view", nccl-tests convention)
       all_reduce:      2(N-1)/N
       all_gather:      (N-1)/N
       reduce_scatter:  (N-1)/N
       broadcast:       1
       scatter/gather:  (N-1)/N
 
-用法:
+Usage:
   torchrun --standalone --nproc_per_node=8 bench_collectives.py --out ../results/collectives_n8.csv
 """
 
@@ -39,9 +39,9 @@ def bus_factor(op, n):
 
 
 def make_op(op, size_bytes, rank, world, device):
-    """返回 (fn, actually_allocated_ok)。size_bytes 是逻辑消息大小 S。"""
+    """Return (fn, actually_allocated_ok). size_bytes is the logical message size S."""
     numel = size_bytes // DTYPE.itemsize
-    # 保证能被 world 整除(scatter/gather/AG/RS 需要)
+    # Ensure divisibility by world size (needed by scatter/gather/AG/RS)
     numel = (numel // world) * world
     if numel == 0:
         return None

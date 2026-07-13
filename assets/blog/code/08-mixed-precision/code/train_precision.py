@@ -1,20 +1,25 @@
 """
-三精度对照训练(《图解分布式训练》第 08 篇):同一个模型、同一份数据、同一串随机种子,
-只换精度方案,把"混合精度 ≈ fp32 收敛 + bf16 速度、纯 bf16 训坏"测出来。
+Three-precision comparison training (part 08 of the Illustrated Distributed Training
+series): same model, same data, same random seeds, only the precision scheme changes.
+Measures the claim "mixed precision converges like fp32 at bf16 speed, pure bf16
+trains badly".
 
-三种方案:
-  fp32    参数/计算全 fp32(基线)
-  mixed   fp32 参数(即主副本)+ autocast bf16 计算 —— 事实上的 bf16 混合精度
-  bf16    参数/动量/计算全 bf16,无 fp32 主副本 —— "省掉主副本"的天真方案
+Three schemes:
+  fp32    params and compute all fp32 (baseline)
+  mixed   fp32 params (i.e. the master copy) + autocast bf16 compute, the de facto bf16 mixed precision
+  bf16    params, momentum, and compute all bf16, no fp32 master copy, the naive "drop the master copy" scheme
 
-另测两笔账(都在 mixed 运行里,fp32 参数是可信的对照面):
-  1. swallow fraction:每 200 步,把这一步的 fp32 更新量 Δ 真的按 bf16 舍入一遍,
-     数一数有多少参数 (w+Δ).bf16 == w.bf16 —— 若参数是 bf16,这些更新会被整个吃掉;
-  2. 梯度直方图:第 500 步所有参数梯度的 log10|g| 分布,对照 fp16/bf16 的可表示下界。
+Two extra ledgers (both inside the mixed run, where fp32 params are a trustworthy reference):
+  1. swallow fraction: every 200 steps, actually round this step's fp32 update delta
+     to bf16 and count how many params satisfy (w+delta).bf16 == w.bf16. If params
+     were bf16, these updates would be swallowed whole.
+  2. gradient histogram: log10|g| distribution over all parameter gradients at step 500,
+     compared against the representable lower bounds of fp16/bf16.
 
-模型:char-level GPT(6 层 384 宽,~10M 参数,自包含定义,SDPA 注意力——
-三种 dtype 都能跑;仓库 model.py 硬依赖 flash-attn,只收 fp16/bf16),tiny-shakespeare,单卡。
-用法:python train_precision.py --outdir ../results
+Model: char-level GPT (6 layers, width 384, ~10M params, self-contained definition,
+SDPA attention so all three dtypes can run, whereas the repo's model.py hard-depends
+on flash-attn which only accepts fp16/bf16), tiny-shakespeare, single GPU.
+Usage: python train_precision.py --outdir ../results
 """
 
 import argparse
@@ -57,7 +62,7 @@ class GPT(nn.Module):
         self.blocks = nn.ModuleList([Block(n_embd, n_head) for _ in range(n_layer)])
         self.ln_f = nn.LayerNorm(n_embd, bias=False)
         self.head = nn.Linear(n_embd, vocab, bias=False)
-        self.head.weight = self.tok.weight  # 权重绑定
+        self.head.weight = self.tok.weight  # weight tying
         self.apply(lambda m: torch.nn.init.normal_(m.weight, 0.0, 0.02)
                    if isinstance(m, (nn.Linear, nn.Embedding)) else None)
 
@@ -104,7 +109,7 @@ def lr_at(it):
 @torch.no_grad()
 def evaluate(model, val, autocast_ctx):
     model.eval()
-    gen = torch.Generator().manual_seed(4242)  # 三个 run 用同一批验证 batch
+    gen = torch.Generator().manual_seed(4242)  # all three runs use the same validation batches
     losses = []
     for _ in range(EVAL_ITERS):
         x, y = get_batch(val, gen)
@@ -123,7 +128,7 @@ def run(scheme, train, val, vocab, outdir, tag=""):
 
     model = GPT(vocab, BLOCK).to(DEVICE)
     if scheme == "bf16":
-        model = model.bfloat16()  # 参数就是 bf16;Adam 动量随参数 dtype,也是 bf16
+        model = model.bfloat16()  # params are bf16, and Adam momentum follows the param dtype so it is bf16 too
 
     if scheme == "mixed":
         def autocast_ctx():
@@ -134,11 +139,11 @@ def run(scheme, train, val, vocab, outdir, tag=""):
 
     opt = torch.optim.AdamW(model.parameters(), lr=LR, betas=(0.9, 0.95),
                             weight_decay=0.1, eps=1e-8)
-    gen = torch.Generator().manual_seed(1337)  # 三个 run 吃同一串训练 batch
+    gen = torch.Generator().manual_seed(1337)  # all three runs consume the same stream of training batches
 
     curve, swallow_rows, hist_rows = [], [], []
     step_times = []
-    train_ema = None  # train loss 的指数滑动平均(0.98),过拟合期比 val 更能看出停滞
+    train_ema = None  # EMA of train loss (0.98), shows stagnation better than val once overfitting starts
     ev0 = torch.cuda.Event(enable_timing=True)
     ev1 = torch.cuda.Event(enable_timing=True)
 
@@ -152,11 +157,11 @@ def run(scheme, train, val, vocab, outdir, tag=""):
             _, loss = model(x, y)
         loss.backward()
 
-        # ---- swallow 对账(mixed:参数是 fp32,模拟"如果参数是 bf16"会吃掉多少更新)----
+        # ---- swallow ledger (mixed: params are fp32, simulate how many updates bf16 params would swallow) ----
         do_swallow = scheme == "mixed" and (it + 1) % SWALLOW_INTERVAL == 0
         if do_swallow:
             prev = [p.detach().clone() for p in model.parameters()]
-        # ---- 梯度直方图(mixed,第 500 步)----
+        # ---- gradient histogram (mixed, step 500) ----
         if scheme == "mixed" and it + 1 == GRADHIST_STEP:
             g_all = torch.cat([p.grad.detach().float().abs().flatten()
                                for p in model.parameters() if p.grad is not None])
@@ -216,11 +221,11 @@ def main():
     ap.add_argument("--warmup", type=int, default=WARMUP_ITERS)
     ap.add_argument("--lr", type=float, default=LR)
     ap.add_argument("--min-lr", type=float, default=MIN_LR)
-    ap.add_argument("--tag", default="")  # 小 LR 机制实验用 --tag _lowlr
+    ap.add_argument("--tag", default="")  # use --tag _lowlr for the small-LR mechanism experiment
     args = ap.parse_args()
     MAX_ITERS, WARMUP_ITERS, LR, MIN_LR = args.steps, args.warmup, args.lr, args.min_lr
     if args.tag:
-        GRADHIST_STEP = -1  # 直方图只在主实验记
+        GRADHIST_STEP = -1  # record the histogram only in the main experiment
     os.makedirs(args.outdir, exist_ok=True)
 
     train, val, vocab = load_data()

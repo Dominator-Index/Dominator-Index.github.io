@@ -1,4 +1,4 @@
-"""第 06 篇示意图:Megatron-SP(AR=AG+RS 的空间劈法) + Ring Attention。"""
+"""Part 06 schematics: Megatron-SP (splitting AR=AG+RS in space) + Ring Attention."""
 
 import os
 

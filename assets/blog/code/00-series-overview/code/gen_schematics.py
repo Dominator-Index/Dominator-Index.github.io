@@ -1,4 +1,4 @@
-"""第 00 篇(序章)示意图:显存账本 + 5D 并行地图。"""
+"""Schematics for post 00 (series overview): the memory ledger and the 5D parallelism map."""
 
 import os
 
@@ -26,7 +26,7 @@ def text(x, y, s, size=13, fill=TEXT, anchor="middle", weight="normal"):
             f'text-anchor="{anchor}" font-weight="{weight}">{s}</text>\n')
 
 
-# ---------------------------------------------------------------- fig 1: 显存账本
+# ---------------------------------------------------------------- fig 1: memory ledger
 def fig1():
     W, H = 960, 420
     s = svg_open(W, H)
@@ -70,7 +70,7 @@ def fig1():
     return s
 
 
-# ---------------------------------------------------------------- fig 2: 5D 地图
+# ---------------------------------------------------------------- fig 2: 5D map
 def fig2():
     W, H = 960, 748
     s = svg_open(W, H)

@@ -1,4 +1,4 @@
-"""第 07 篇示意图:三种流水线调度的时间线(p=4)。1F1B 槽位按依赖约束精确推导。"""
+"""Part 07 schematic: timelines of three pipeline schedules (p=4). The 1F1B slots are derived exactly from the dependency constraints."""
 
 import os
 
@@ -10,7 +10,7 @@ GLOW = "#00c8ff"
 S = ["#0099c4", "#e66767", "#9085e9", "#199e70", "#c98500", "#e14d92"]
 MONO = "'JetBrains Mono','SFMono-Regular',Consolas,monospace"
 OUT = os.path.join(os.path.dirname(__file__), "..", "figures")
-CF, CB = S[0], S[2]  # forward 青 / backward 紫
+CF, CB = S[0], S[2]  # forward cyan / backward purple
 
 
 def svg_open(w, h):
@@ -67,7 +67,7 @@ def fig1():
     s = panel(s, x0, 280, "(b) GPipe (m = 4): all forwards, then all backwards", sched, 14,
               "bubble = 6/14 = (p&#8722;1)/(m+p&#8722;1) &#8776; 43% &#183; must hold ALL m activations &#8594; memory O(m)")
 
-    # (c) 1F1B m=4(槽位按依赖精确推导)
+    # (c) 1F1B m=4 (slots derived exactly from the dependencies)
     sched_1f1b = {
         0: [("F", 1, 0), ("F", 2, 1), ("F", 3, 2), ("F", 4, 3), ("B", 1, 7), ("B", 2, 9), ("B", 3, 11), ("B", 4, 13)],
         1: [("F", 1, 1), ("F", 2, 2), ("F", 3, 3), ("F", 4, 4), ("B", 1, 6), ("B", 2, 8), ("B", 3, 10), ("B", 4, 12)],

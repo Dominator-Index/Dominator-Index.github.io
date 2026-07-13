@@ -168,3 +168,159 @@ To feel the weight of that number, consider that a GPT-2's LayerNorm weight is a
 *Environment: 8× RTX PRO 6000 Blackwell, PyTorch 2.9.1, NCCL 2.27.5. Reproduce: `torchrun --standalone --nproc_per_node={2,4,8} bench_collectives.py`. Benchmark, plotting and schematic-generation code accompanies the series.*
 
 *All benchmark scripts, schematic generators, plotting code and raw result CSVs for this post live in [assets/blog/code/01-collective-communication](https://github.com/Dominator-Index/Dominator-Index.github.io/tree/main/assets/blog/code/01-collective-communication).*
+
+---
+
+## Appendix: The Code That Ran
+
+Every number in this post comes from the scripts below, embedded verbatim. Plotting and schematic code plus the raw result CSVs live in the folder linked above.
+
+<details markdown="1">
+<summary><code>bench_collectives.py</code></summary>
+
+```python
+"""
+Collective communication primitive benchmark (Distributed Training Illustrated, post 01).
+
+Benchmarks 6 primitives: broadcast / scatter / gather / all_gather / reduce_scatter / all_reduce
+Conventions (matching the post):
+  - S = logical message size (bytes of the full tensor)
+  - algbw = S / t                          (algorithm bandwidth, the "user view")
+  - busbw = algbw x correction factor      (bus bandwidth, the "hardware view", nccl-tests convention)
+      all_reduce:      2(N-1)/N
+      all_gather:      (N-1)/N
+      reduce_scatter:  (N-1)/N
+      broadcast:       1
+      scatter/gather:  (N-1)/N
+
+Usage:
+  torchrun --standalone --nproc_per_node=8 bench_collectives.py --out ../results/collectives_n8.csv
+"""
+
+import argparse
+import csv
+import os
+
+import torch
+import torch.distributed as dist
+
+SIZES = [4 * 2**10, 64 * 2**10, 2**20, 16 * 2**20, 256 * 2**20, 2**30]  # 4KiB..1GiB
+DTYPE = torch.bfloat16
+
+
+def bus_factor(op, n):
+    return {
+        "all_reduce": 2 * (n - 1) / n,
+        "all_gather": (n - 1) / n,
+        "reduce_scatter": (n - 1) / n,
+        "broadcast": 1.0,
+        "scatter": (n - 1) / n,
+        "gather": (n - 1) / n,
+    }[op]
+
+
+def make_op(op, size_bytes, rank, world, device):
+    """Return (fn, actually_allocated_ok). size_bytes is the logical message size S."""
+    numel = size_bytes // DTYPE.itemsize
+    # Ensure divisibility by world size (needed by scatter/gather/AG/RS)
+    numel = (numel // world) * world
+    if numel == 0:
+        return None
+
+    if op == "all_reduce":
+        t = torch.randn(numel, dtype=DTYPE, device=device)
+        return lambda: dist.all_reduce(t)
+
+    if op == "broadcast":
+        t = torch.randn(numel, dtype=DTYPE, device=device)
+        return lambda: dist.broadcast(t, src=0)
+
+    if op == "all_gather":
+        out = torch.empty(numel, dtype=DTYPE, device=device)
+        inp = torch.randn(numel // world, dtype=DTYPE, device=device)
+        return lambda: dist.all_gather_into_tensor(out, inp)
+
+    if op == "reduce_scatter":
+        inp = torch.randn(numel, dtype=DTYPE, device=device)
+        out = torch.empty(numel // world, dtype=DTYPE, device=device)
+        return lambda: dist.reduce_scatter_tensor(out, inp)
+
+    if op == "scatter":
+        out = torch.empty(numel // world, dtype=DTYPE, device=device)
+        if rank == 0:
+            chunks = list(torch.randn(numel, dtype=DTYPE, device=device).chunk(world))
+            return lambda: dist.scatter(out, chunks, src=0)
+        return lambda: dist.scatter(out, None, src=0)
+
+    if op == "gather":
+        inp = torch.randn(numel // world, dtype=DTYPE, device=device)
+        if rank == 0:
+            outs = list(torch.empty(numel, dtype=DTYPE, device=device).chunk(world))
+            return lambda: dist.gather(inp, outs, dst=0)
+        return lambda: dist.gather(inp, None, dst=0)
+
+    raise ValueError(op)
+
+
+def bench(fn, iters, device):
+    start = torch.cuda.Event(enable_timing=True)
+    end = torch.cuda.Event(enable_timing=True)
+    dist.barrier()
+    torch.cuda.synchronize()
+    start.record()
+    for _ in range(iters):
+        fn()
+    end.record()
+    torch.cuda.synchronize()
+    return start.elapsed_time(end) / iters  # ms
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--out", default="results.csv")
+    args = parser.parse_args()
+
+    rank = int(os.environ["RANK"])
+    world = int(os.environ["WORLD_SIZE"])
+    local_rank = int(os.environ["LOCAL_RANK"])
+    torch.cuda.set_device(local_rank)
+    device = torch.device("cuda", local_rank)
+    dist.init_process_group("nccl", device_id=device)
+
+    ops = ["broadcast", "scatter", "gather", "all_gather", "reduce_scatter", "all_reduce"]
+    rows = []
+    for op in ops:
+        for size in SIZES:
+            fn = make_op(op, size, rank, world, device)
+            if fn is None:
+                continue
+            warmup = 20 if size < 256 * 2**20 else 5
+            iters = 50 if size < 256 * 2**20 else 10
+            for _ in range(warmup):
+                fn()
+            t_ms = bench(fn, iters, device)
+            algbw = size / (t_ms / 1e3) / 1e9  # GB/s
+            busbw = algbw * bus_factor(op, world)
+            if rank == 0:
+                rows.append([op, world, size, round(t_ms, 4), round(algbw, 2), round(busbw, 2)])
+                print(f"{op:15s} N={world} S={size/2**20:9.3f}MiB  t={t_ms:9.3f}ms  algbw={algbw:7.2f}GB/s  busbw={busbw:7.2f}GB/s", flush=True)
+            del fn
+            torch.cuda.empty_cache()
+
+    if rank == 0:
+        os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
+        with open(args.out, "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["op", "world_size", "bytes", "time_ms", "algbw_GBps", "busbw_GBps"])
+            w.writerows(rows)
+        print(f"wrote {args.out}")
+
+    dist.destroy_process_group()
+
+
+if __name__ == "__main__":
+    main()
+```
+
+</details>
+

@@ -1,4 +1,4 @@
-"""第 02 篇实验图。数据:../results/ddp.csv"""
+"""Result plots for post 02. Data: ../results/ddp.csv"""
 
 import csv
 import pathlib
@@ -19,7 +19,7 @@ sweep = [(float(r["bucket_cap_mb"]), float(r["step_ms"]), float(r["ktok_per_s"])
 
 apply()
 
-# ---- fig 3: bucket_cap_mb 扫描 -------------------------------------------
+# ---- fig 3: bucket_cap_mb sweep -------------------------------------------
 fig, ax = plt.subplots(figsize=(8.4, 4.8))
 xs = [b for b, _, _ in sweep]
 ys = [t for _, t, _ in sweep]
@@ -49,7 +49,7 @@ ax.set_title("The bucket-size U-curve: too small pays latency, too big loses ove
 ax.legend(loc="lower right")
 save(fig, FIG / "fig-3-bucket-sweep")
 
-# ---- fig 4: 吞吐对比条形图 -------------------------------------------------
+# ---- fig 4: throughput comparison bar chart --------------------------------
 gas4 = {r["no_sync"]: float(r["ktok_per_s"]) for r in rows if r["gas"] == "4"}
 single_tps = float(next(r for r in rows if r["mode"] == "single")["ktok_per_s"])
 ideal = single_tps * 8

@@ -1,4 +1,4 @@
-"""第 08 篇实验图:fig-3 三精度训练对照 + swallow 对账,fig-4 GEMM 吞吐 + 梯度直方图。"""
+"""Part 08 experiment figures: fig-3 three-precision training comparison + swallow ledger, fig-4 GEMM throughput + gradient histogram."""
 
 import csv
 import os
@@ -14,7 +14,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 RES = os.path.join(HERE, "..", "results")
 FIG = os.path.join(HERE, "..", "figures")
 
-C = {"fp32": SERIES[2], "mixed": SERIES[0], "bf16": SERIES[1]}  # 紫 / 青(主角) / 红(警示)
+C = {"fp32": SERIES[2], "mixed": SERIES[0], "bf16": SERIES[1]}  # purple / cyan (the protagonist) / red (warning)
 LABEL = {"fp32": "fp32 (baseline)", "mixed": "bf16 mixed (fp32 master)", "bf16": "pure bf16 (no master)"}
 
 

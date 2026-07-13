@@ -1,12 +1,12 @@
 """
-FSDP 实验(《图解分布式训练》第 04 篇):FSDP2 (fully_shard) vs DDP,GPT-2 Large。
+FSDP experiments (Distributed Training Illustrated, post 04): FSDP2 (fully_shard) vs DDP, GPT-2 Large.
 
-测三件事:
-  1. FSDP2 vs DDP 的每卡显存(对照第 03 篇 deepspeed stage 3 / stage 0)
-  2. reshard_after_forward 消融(True=ZeRO-3 语义 / False=ZeRO-2 语义:前向后不切回,反向省一次 all-gather)
-  3. 吞吐对比
+Measures three things:
+  1. Per-GPU memory of FSDP2 vs DDP (compare with post 03's deepspeed stage 3 / stage 0)
+  2. reshard_after_forward ablation (True = ZeRO-3 semantics / False = ZeRO-2 semantics: skip resharding after forward, saving one all-gather in backward)
+  3. Throughput comparison
 
-用法:
+Usage:
   torchrun --standalone --nproc_per_node=8 bench_fsdp.py --mode {ddp,fsdp2} [--no-reshard] --out ../results/fsdp.csv
 """
 
@@ -49,14 +49,14 @@ def main():
         model = DDP(model, device_ids=[local_rank], gradient_as_bucket_view=True)
         autocast = torch.autocast("cuda", dtype=torch.bfloat16)
     else:
-        # FSDP2:逐 Block fully_shard(单元 = transformer block),bf16 计算 + fp32 归约
+        # FSDP2: fully_shard each Block (unit = transformer block), bf16 compute + fp32 reduce
         mp = MixedPrecisionPolicy(param_dtype=torch.bfloat16, reduce_dtype=torch.float32)
         reshard = not args.no_reshard
         for block in model.transformer.h:
             fully_shard(block, mp_policy=mp, reshard_after_forward=reshard)
         fully_shard(model, mp_policy=mp, reshard_after_forward=reshard)
         import contextlib
-        autocast = contextlib.nullcontext()  # MixedPrecisionPolicy 已管精度
+        autocast = contextlib.nullcontext()  # MixedPrecisionPolicy already handles precision
 
     opt = torch.optim.AdamW(model.parameters(), lr=3e-4)
     X = torch.randint(0, 50304, (MBS, BLOCK), device=device)

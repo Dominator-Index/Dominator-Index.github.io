@@ -1,4 +1,4 @@
-"""第 04 篇示意图:FSDP1 vs FSDP2 切分几何 + FSDP2 prefetch 时间线。"""
+"""Schematics for post 04: FSDP1 vs FSDP2 sharding geometry, plus the FSDP2 prefetch timeline."""
 
 import os
 
@@ -10,7 +10,7 @@ GLOW = "#00c8ff"
 S = ["#0099c4", "#e66767", "#9085e9", "#199e70", "#c98500", "#e14d92"]
 MONO = "'JetBrains Mono','SFMono-Regular',Consolas,monospace"
 OUT = os.path.join(os.path.dirname(__file__), "..", "figures")
-RANK_C = [S[0], S[3], S[4], S[5]]  # 4 个 rank 的归属色
+RANK_C = [S[0], S[3], S[4], S[5]]  # ownership colors for the 4 ranks
 
 
 def svg_open(w, h):
@@ -27,7 +27,7 @@ def text(x, y, s, size=13, fill=TEXT, anchor="middle", weight="normal"):
             f'text-anchor="{anchor}" font-weight="{weight}">{s}</text>\n')
 
 
-# ------------- fig 1: 切分几何 --------------------------------------------
+# ------------- fig 1: sharding geometry ------------------------------------
 def fig1():
     W, H = 960, 560
     s = svg_open(W, H)
@@ -80,7 +80,7 @@ def fig1():
     return s
 
 
-# ------------- fig 2: FSDP2 一步的通信时间线 --------------------------------
+# ------------- fig 2: communication timeline of one FSDP2 step --------------
 def fig2():
     W, H = 960, 500
     s = svg_open(W, H)

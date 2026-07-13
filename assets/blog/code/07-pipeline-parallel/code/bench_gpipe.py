@@ -1,12 +1,13 @@
 """
-手写 GPipe(《图解分布式训练》第 07 篇):实测气泡比例 vs microbatch 数。
+Hand-written GPipe (part 07 of the Illustrated Distributed Training series): measure
+the bubble fraction vs microbatch count.
 
-p 个 stage(每卡一个),总 batch 固定,microbatch 数 m 从 1 扫到 32:
-  理论:T(m) = (m + p - 1) · t_slot   (t_slot = 一个 microbatch 的单 stage 时间)
-  气泡比例 = (p-1) / (m + p - 1)
-m=1 就是朴素模型并行(只有 1 张卡在干活);m 越大气泡越薄。
+p stages (one per GPU), total batch fixed, sweep microbatch count m from 1 to 32:
+  theory: T(m) = (m + p - 1) * t_slot   (t_slot = single-stage time for one microbatch)
+  bubble fraction = (p-1) / (m + p - 1)
+m=1 is naive model parallelism (only 1 GPU working at a time). Larger m thins the bubble.
 
-用法:
+Usage:
   torchrun --standalone --nproc_per_node=4 bench_gpipe.py --out ../results/gpipe.csv
 """
 
@@ -19,9 +20,9 @@ import torch
 import torch.distributed as dist
 import torch.nn as nn
 
-D = 4096                # 隐宽
-LAYERS_PER_STAGE = 6    # 每个 stage 的层数
-TOTAL_ROWS = 8192       # 总 batch(行数),固定
+D = 4096                # hidden width
+LAYERS_PER_STAGE = 6    # layers per stage
+TOTAL_ROWS = 8192       # total batch (rows), fixed
 M_LIST = [1, 2, 4, 8, 16, 32]
 WARMUP, STEPS = 3, 10
 
@@ -52,12 +53,12 @@ def main():
 
     torch.manual_seed(1337 + rank)
     stage = Stage().to(device).bfloat16()
-    opt = torch.optim.SGD(stage.parameters(), lr=1e-4)  # 便宜的 step:只测调度几何
+    opt = torch.optim.SGD(stage.parameters(), lr=1e-4)  # cheap step: we only measure schedule geometry
 
     def gpipe_step(m):
         rows = TOTAL_ROWS // m
         ins, outs, reqs = [], [], []
-        # ---- 前向:m 个 microbatch 依次流过 ----
+        # ---- forward: m microbatches flow through one after another ----
         for i in range(m):
             if rank == 0:
                 x = torch.randn(rows, D, device=device, dtype=torch.bfloat16)
@@ -73,7 +74,7 @@ def main():
             outs.append(out)
         for r_ in reqs:
             r_.wait()
-        # ---- 反向:倒序 ----
+        # ---- backward: reverse order ----
         for i in reversed(range(m)):
             if rank == p - 1:
                 loss = outs[i].float().square().mean() / m
@@ -87,7 +88,7 @@ def main():
         opt.step()
         opt.zero_grad(set_to_none=True)
 
-    # ---- t_slot:一个 microbatch 在本 stage 的 fwd+bwd 时间(无通信)----
+    # ---- t_slot: fwd+bwd time of one microbatch on this stage (no communication) ----
     def slot_time(m):
         rows = TOTAL_ROWS // m
         x = torch.randn(rows, D, device=device, dtype=torch.bfloat16, requires_grad=True)
@@ -114,7 +115,7 @@ def main():
         t_slot = slot_time(m)
         if rank == 0:
             bubble_theory = (p - 1) / (m + p - 1)
-            t_ideal = m * t_slot          # 无气泡、无通信的理想时间
+            t_ideal = m * t_slot          # ideal time with no bubble and no communication
             bubble_meas = 1 - t_ideal / step_ms
             rows_out.append([p, m, round(t_slot, 2), round(step_ms, 1),
                              round(bubble_theory, 3), round(bubble_meas, 3)])

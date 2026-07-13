@@ -1,13 +1,14 @@
 """
-GEMM 吞吐 vs 精度(《图解分布式训练》第 08 篇):同一个 8192^3 矩阵乘,
-只换 dtype,实测 TFLOPS —— "为什么 99% 的计算要走低精度"的那笔账。
+GEMM throughput vs precision (part 08 of the Illustrated Distributed Training series):
+the same 8192^3 matmul, only the dtype changes, measured in TFLOPS. This is the
+ledger behind "why 99% of the compute should run in low precision".
 
-fp32   经典 fp32(关 TF32)
-tf32   fp32 输入、Tensor Core TF32 路径(尾数截到 10 位)
-bf16   bf16 输入、fp32 累加(Tensor Core)
-fp16   fp16 输入、fp32 累加(Tensor Core)
+fp32   classic fp32 (TF32 off)
+tf32   fp32 inputs, Tensor Core TF32 path (mantissa truncated to 10 bits)
+bf16   bf16 inputs, fp32 accumulation (Tensor Core)
+fp16   fp16 inputs, fp32 accumulation (Tensor Core)
 
-用法:python bench_gemm.py --out ../results/gemm.csv
+Usage: python bench_gemm.py --out ../results/gemm.csv
 """
 
 import argparse

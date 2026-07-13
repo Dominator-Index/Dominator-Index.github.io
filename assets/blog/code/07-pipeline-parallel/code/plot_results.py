@@ -1,4 +1,4 @@
-"""第 07 篇实验图:GPipe 气泡实测 vs 理论。"""
+"""Part 07 experiment figure: GPipe bubble, measured vs theory."""
 
 import csv
 import pathlib
@@ -22,7 +22,7 @@ p = 4
 apply()
 fig, axes = plt.subplots(1, 2, figsize=(11, 4.5), gridspec_kw={"wspace": 0.24})
 
-# 左:step 时间 U 形
+# left: U-shaped step time
 ax = axes[0]
 theory = [(mi + p - 1) * s for mi, s in zip(m, slot)]
 ax.plot(m, step, marker="o", color=SERIES[0], label="measured step time")
@@ -43,7 +43,7 @@ ax.annotate("tiny GEMMs + per-hop latency\ndominate", xy=(32, 86.2), xytext=(7.5
 ax.set_ylim(0, 140)
 ax.legend(fontsize=8.5, loc="lower left")
 
-# 右:气泡比例
+# right: bubble fraction
 ax = axes[1]
 ax.plot(m, [b * 100 for b in bt], marker="s", ms=5, ls="--", color=GLOW, label="theory (p−1)/(m+p−1)")
 ax.plot(m, [b * 100 for b in bm], marker="o", color=SERIES[2], label="measured idle fraction")

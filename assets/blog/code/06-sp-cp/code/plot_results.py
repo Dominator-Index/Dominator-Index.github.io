@@ -1,4 +1,4 @@
-"""第 06 篇实验图:ring attention CP=2/4/8 分解(与第 05 篇 TP 图同构,对照阅读)。"""
+"""Part 06 experiment figure: ring attention breakdown for CP=2/4/8 (same layout as the part 05 TP figure, read them side by side)."""
 
 import csv
 import pathlib
@@ -17,7 +17,7 @@ apply()
 fig, ax = plt.subplots(figsize=(8.2, 4.8))
 x = range(len(rows))
 comp = [float(r["compute_ms"]) for r in rows]
-comm = [max(0.0, float(r["comm_ms"])) for r in rows]  # cp=2 的 -0.06 是测量噪声,记 0
+comm = [max(0.0, float(r["comm_ms"])) for r in rows]  # the -0.06 at cp=2 is measurement noise, clamp to 0
 ax.bar(x, comp, width=0.5, color=SERIES[0], label="compute (blockwise attention)")
 ax.bar(x, comm, width=0.5, bottom=comp, color=SERIES[4], label="KV ring exchange (p2p)")
 for i, r in enumerate(rows):

@@ -1,20 +1,23 @@
 """
-分布式优化器 precondition 通信账实测(RMNP vs Muon 独立篇)。
+Measured communication ledger of distributed optimizer preconditioning (standalone
+RMNP vs Muon post).
 
-场景:FSDP2 式 dim-0(行)分片,GPT-2 Large 的全部 2D 矩阵(36 层 × 4 个,
-hidden 1280),8 卡。只测优化器 step 的 precondition 段(动量更新 + 归一化/NS +
-写回参数),梯度同步不计入(两家相同)。
+Setup: FSDP2-style dim-0 (row) sharding, all 2D matrices of GPT-2 Large (36 layers
+x 4 each, hidden 1280), 8 GPUs. Only the precondition segment of the optimizer step
+is measured (momentum update + normalization/NS + writing back params). Gradient
+synchronization is excluded (identical for both).
 
-四种方案:
-  rmnp_local    行分片下 RMNP:每卡对自己的完整行块归一化 —— 0 通信
-  rmnp_colcut   列切 TP 下 RMNP:本地部分平方和 + 一次 [Σm] 向量 all-reduce
-  muon_sc       Muon 同步计算:all-gather 动量成完整矩阵,每卡冗余算 NS,取回本行块
-  muon_rr       Muon round-robin:all-gather + 仅 owner 算 NS + broadcast 更新
-                (通信 2×,计算 1/N —— Moonlight/Canzona 语境里的"分摊"路线)
+Four schemes:
+  rmnp_local    RMNP under row sharding: each GPU normalizes its own complete row block, 0 communication
+  rmnp_colcut   RMNP under column-cut TP: local partial sums of squares + one [sum_m] vector all-reduce
+  muon_sc       Muon synchronous compute: all-gather momentum into the full matrix, every GPU redundantly runs NS, take back its row block
+  muon_rr       Muon round-robin: all-gather + only the owner runs NS + broadcast the update
+                (2x communication, 1/N compute, the "amortized" route in the Moonlight/Canzona sense)
 
-另:方形矩阵尺寸扫描(1k/2k/4k/8k)与 分片 RMNP == 整矩阵 RMNP 的数值一致性校验。
+Also: a square-matrix size sweep (1k/2k/4k/8k) and a numerical check that sharded
+RMNP == full-matrix RMNP.
 
-用法:torchrun --standalone --nproc_per_node=8 bench_dist_opt.py --out ../results
+Usage: torchrun --standalone --nproc_per_node=8 bench_dist_opt.py --out ../results
 """
 
 import argparse
@@ -25,7 +28,7 @@ import torch
 import torch.distributed as dist
 import torch.nn.functional as F
 
-# GPT-2 Large:hidden 1280,36 层,每层 4 个 2D 矩阵([out, in])
+# GPT-2 Large: hidden 1280, 36 layers, 4 2D matrices per layer ([out, in])
 H, L = 1280, 36
 LAYER_SHAPES = [(3 * H, H), (H, H), (4 * H, H), (H, 4 * H)]  # qkv/attn.proj/c_fc/c_proj
 SWEEP_SIZES = [1024, 2048, 4096, 8192]
@@ -50,13 +53,13 @@ def newtonschulz5(G, steps=NS_STEPS, eps=1e-7):
 
 
 class Bench:
-    """一套 GPT-2 Large 矩阵的分片状态(行分片与列分片两份,bf16)。"""
+    """Sharded state for one set of GPT-2 Large matrices (row-sharded and column-sharded copies, bf16)."""
 
     def __init__(self, device, world, rank):
         self.device, self.world, self.rank = device, world, rank
         self.shapes = LAYER_SHAPES * L
         g = torch.Generator(device="cpu").manual_seed(1337)
-        # 行分片(FSDP2):每卡 [m/N, n];列分片(TP RowLinear):每卡 [m, n/N]
+        # row sharding (FSDP2): [m/N, n] per GPU, column sharding (TP RowLinear): [m, n/N] per GPU
         self.row_W, self.row_M, self.row_G = [], [], []
         self.col_M, self.col_G = [], []
         for (m, n) in self.shapes:
@@ -67,27 +70,27 @@ class Bench:
             self.col_G.append(torch.randn(m, n // world, generator=g).bfloat16().to(device))
         self.total_params = sum(m * n for (m, n) in self.shapes)
 
-    # ---- 方案们:各执行"一整个优化器 precondition 步"----
+    # ---- the schemes: each runs one full optimizer precondition step ----
     def rmnp_local(self):
         for W, M, G in zip(self.row_W, self.row_M, self.row_G):
             M.mul_(MU).add_(G)
-            u = F.normalize(M.float(), p=2, dim=-1)  # 行内求和走 fp32(08 篇原则)
+            u = F.normalize(M.float(), p=2, dim=-1)  # within-row sums run in fp32 (the part 08 principle)
             scale = max(1.0, (M.shape[0] * self.world) / M.shape[1]) ** 0.5
             W.add_(u.bfloat16(), alpha=-3e-4 * scale)
 
     def rmnp_colcut(self):
-        # 本地部分平方和,全部矩阵拼一个 [Σm] 向量,一次 all-reduce
+        # local partial sums of squares, concat all matrices into one [sum_m] vector, one all-reduce
         partials = []
         for M, G in zip(self.col_M, self.col_G):
             M.mul_(MU).add_(G)
             partials.append(M.float().pow(2).sum(dim=-1))
-        flat = torch.cat(partials)                      # [Σm] ≈ 41 万个 fp32
-        dist.all_reduce(flat)                           # 唯一的通信
+        flat = torch.cat(partials)                      # [sum_m] about 410k fp32 values
+        dist.all_reduce(flat)                           # the only communication
         idx = 0
         for M in self.col_M:
             m = M.shape[0]
             norms = flat[idx:idx + m].sqrt().clamp_min(1e-7)
-            M.div_(norms.bfloat16().unsqueeze(-1))      # 就地当作 update 用
+            M.div_(norms.bfloat16().unsqueeze(-1))      # reused in place as the update
             idx += m
 
     def muon_sc(self):
@@ -95,8 +98,8 @@ class Bench:
             M.mul_(MU).add_(G)
             m, n = self.shapes[i]
             full = torch.empty(m, n, dtype=torch.bfloat16, device=self.device)
-            dist.all_gather_into_tensor(full, M.contiguous())   # O(mn) 通信
-            u = newtonschulz5(full)                             # 每卡冗余算
+            dist.all_gather_into_tensor(full, M.contiguous())   # O(mn) communication
+            u = newtonschulz5(full)                             # every GPU computes redundantly
             rows = slice(self.rank * (m // self.world), (self.rank + 1) * (m // self.world))
             scale = max(1.0, m / n) ** 0.5
             W.add_(u[rows], alpha=-3e-4 * scale)
@@ -109,20 +112,20 @@ class Bench:
             full = torch.empty(m, n, dtype=torch.bfloat16, device=self.device)
             dist.all_gather_into_tensor(full, M.contiguous())   # O(mn)
             if self.rank == owner:
-                full = newtonschulz5(full).contiguous()         # 只有 owner 算
-            dist.broadcast(full, src=owner)                     # 再付一次 O(mn)
+                full = newtonschulz5(full).contiguous()         # only the owner computes
+            dist.broadcast(full, src=owner)                     # pay another O(mn)
             rows = slice(self.rank * (m // self.world), (self.rank + 1) * (m // self.world))
             scale = max(1.0, m / n) ** 0.5
             W.add_(full[rows], alpha=-3e-4 * scale)
 
-    # ---- 每方案的每步通信量(每卡、字节,ring/collective 口径,bf16=2B)----
+    # ---- per-step communication volume per scheme (per GPU, bytes, ring/collective accounting, bf16=2B) ----
     def bytes_per_step(self, scheme):
         N = self.world
         if scheme == "rmnp_local":
             return 0
         if scheme == "rmnp_colcut":
             total_m = sum(m for (m, _) in self.shapes)
-            return int(2 * (N - 1) / N * total_m * 4)           # fp32 向量 all-reduce
+            return int(2 * (N - 1) / N * total_m * 4)           # fp32 vector all-reduce
         if scheme == "muon_sc":
             return int(sum((N - 1) / N * m * n * 2 for (m, n) in self.shapes))
         if scheme == "muon_rr":
@@ -143,12 +146,12 @@ def time_fn(fn, device):
     torch.cuda.synchronize()
     ms = ev0.elapsed_time(ev1) / STEPS
     t = torch.tensor([ms], device=device)
-    dist.all_reduce(t, op=dist.ReduceOp.MAX)                    # 取最慢卡
+    dist.all_reduce(t, op=dist.ReduceOp.MAX)                    # take the slowest GPU
     return t.item()
 
 
 def exactness_check(device, world, rank):
-    """分片 RMNP 的行范数与整矩阵 RMNP 完全一致(不是近似)。"""
+    """Row norms of sharded RMNP match full-matrix RMNP exactly (not an approximation)."""
     m, n = 512, 384
     g = torch.Generator(device="cpu").manual_seed(7)
     full = torch.randn(m, n, generator=g).to(device)
@@ -190,7 +193,7 @@ def main():
     del bench
     torch.cuda.empty_cache()
 
-    # ---- 方形矩阵尺寸扫描:单矩阵 precondition 时间 ----
+    # ---- square-matrix size sweep: per-matrix precondition time ----
     sweep = []
     for s in SWEEP_SIZES:
         shard = torch.randn(s // world, s, device=device).bfloat16()

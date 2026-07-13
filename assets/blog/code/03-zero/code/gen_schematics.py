@@ -1,4 +1,4 @@
-"""第 03 篇示意图:ZeRO 劈开 all-reduce + 三级显存账本。"""
+"""Schematics for post 03: ZeRO splitting the all-reduce open, plus the three-stage memory ledger."""
 
 import os
 
@@ -10,7 +10,7 @@ GLOW = "#00c8ff"
 S = ["#0099c4", "#e66767", "#9085e9", "#199e70", "#c98500", "#e14d92"]
 MONO = "'JetBrains Mono','SFMono-Regular',Consolas,monospace"
 OUT = os.path.join(os.path.dirname(__file__), "..", "figures")
-# 显存分段惯用色(style-guide):参数=s1 梯度=s3 优化器状态=s5
+# Conventional colors for memory segments (style-guide): params=s1 grads=s3 optimizer state=s5
 C_P, C_G, C_O = S[0], S[2], S[4]
 
 
@@ -35,7 +35,7 @@ def arrow(x1, y1, x2, y2, color=GLOW, width=1.6):
                    f'stroke-width="{width}" marker-end="url(#arr)"/>\n')
 
 
-# ---------------- fig 1: 劈开 all-reduce,中间插本地更新(ZeRO-1 心脏)
+# ---------------- fig 1: split the all-reduce open, insert a local update in the middle (the heart of ZeRO-1)
 def fig1():
     W, H = 960, 470
     s = svg_open(W, H)
@@ -94,7 +94,7 @@ def fig1():
     return s
 
 
-# ---------------- fig 2: 三级账本(理论条形,Ψ 记账)
+# ---------------- fig 2: three-stage ledger (theoretical bars, accounted in Psi)
 def fig2():
     W, H = 960, 560
     s = svg_open(W, H)

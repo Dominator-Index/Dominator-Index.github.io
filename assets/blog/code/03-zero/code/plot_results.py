@@ -1,4 +1,4 @@
-"""第 03 篇实验图。数据:../results/zero.csv + 单卡基线 152.9 ms(single_large_baseline.py)"""
+"""Result plots for post 03. Data: ../results/zero.csv + single-GPU baseline 152.9 ms (single_large_baseline.py)"""
 
 import csv
 import pathlib
@@ -12,15 +12,15 @@ from plot_style import apply, save, SERIES, GLOW, TEXT2, TEXT  # noqa: E402
 HERE = pathlib.Path(__file__).resolve().parent
 FIG = HERE.parent / "figures"
 rows = list(csv.DictReader(open(HERE.parent / "results" / "zero.csv")))
-PSI_GIB = 774090240 / 2**30  # 1Ψ 字节数换算成 GiB 的系数(×每参数字节数)
+PSI_GIB = 774090240 / 2**30  # factor converting 1 Psi to GiB (multiply by bytes per parameter)
 
 apply()
 
-# ---- fig 3: 每卡显存(常驻 + 峰值) ---------------------------------------
+# ---- fig 3: per-GPU memory (resident + peak) -------------------------------
 stages = [r["stage"] for r in rows]
 resident = [float(r["resident_GiB"]) for r in rows]
 peak = [float(r["peak_GiB"]) for r in rows]
-# 论文账本预测的"step 后常驻"(梯度不驻留口径): 14Ψ, 3.5Ψ, 3.5Ψ, 1.75Ψ
+# Paper-ledger prediction of post-step resident memory (grads treated as transient): 14Psi, 3.5Psi, 3.5Psi, 1.75Psi
 ledger = [14 * PSI_GIB, 3.5 * PSI_GIB, 3.5 * PSI_GIB, 1.75 * PSI_GIB]
 
 fig, ax = plt.subplots(figsize=(8.6, 4.8))
@@ -46,7 +46,7 @@ ax.annotate("stage 1 = stage 2:\ngrads never persist anyway",
 ax.legend(loc="upper right", fontsize=9)
 save(fig, FIG / "fig-3-memory-ladder")
 
-# ---- fig 4: step 时间与暴露的通信 -----------------------------------------
+# ---- fig 4: step time and exposed communication -----------------------------
 single_ms = 152.9
 step_ms = [float(r["step_ms"]) for r in rows]
 fig, ax = plt.subplots(figsize=(8.4, 4.4))

@@ -1,4 +1,4 @@
-"""第 04 篇实验图。数据:../results/fsdp.csv"""
+"""Result plots for post 04. Data: ../results/fsdp.csv"""
 
 import csv
 import pathlib
@@ -21,7 +21,7 @@ colors = [SERIES[1], SERIES[0], SERIES[3]]
 
 fig, axes = plt.subplots(1, 2, figsize=(11, 4.6), gridspec_kw={"wspace": 0.25})
 
-# 左:显存
+# left: memory
 ax = axes[0]
 res = [float(rows[m]["resident_GiB"]) for m in modes]
 pk = [float(rows[m]["peak_GiB"]) for m in modes]
@@ -41,7 +41,7 @@ ax.annotate("peak gap = 1.3 GiB\n≈ one full bf16 model\nkept un-resharded",
             arrowprops=dict(arrowstyle="->", color=TEXT2, lw=1))
 ax.legend(fontsize=9)
 
-# 右:step 时间
+# right: step time
 ax = axes[1]
 ms = [float(rows[m]["step_ms"]) for m in modes]
 ax.bar(x, ms, width=0.5, color=colors, alpha=0.92)

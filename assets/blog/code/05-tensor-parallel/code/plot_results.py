@@ -1,4 +1,4 @@
-"""第 05 篇实验图:TP=2/4/8 的计算/通信分解(一层 MLP 前向)。"""
+"""Part 05 experiment figure: compute/comm breakdown for TP=2/4/8 (one MLP layer forward)."""
 
 import csv
 import pathlib

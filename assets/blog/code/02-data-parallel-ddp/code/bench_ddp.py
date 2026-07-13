@@ -1,17 +1,17 @@
 """
-DDP 实验(《图解分布式训练》第 02 篇):nanoGPT-124M 吞吐。
+DDP experiments (Distributed Training Illustrated, post 02): nanoGPT-124M throughput.
 
-测三件事:
-  1. 单卡 vs DDP(通信开销有多大,重叠回收了多少)
-  2. bucket_cap_mb 扫描(分桶大小 vs 吞吐:延迟地板与重叠窗口的折中)
-  3. 梯度累积时 no_sync 的效果(省掉 gas-1 次 all-reduce)
+Measures three things:
+  1. Single GPU vs DDP (how big the comm overhead is, how much overlap buys back)
+  2. bucket_cap_mb sweep (bucket size vs throughput: latency floor vs overlap window tradeoff)
+  3. Effect of no_sync under gradient accumulation (skips gas-1 all-reduces)
 
-用法:
-  # 单卡基线
+Usage:
+  # single-GPU baseline
   python bench_ddp.py --mode single --out ../results/ddp.csv
-  # DDP + 桶扫描
+  # DDP + bucket sweep
   torchrun --standalone --nproc_per_node=8 bench_ddp.py --mode ddp --bucket-mb 25 --out ../results/ddp.csv
-  # 梯度累积 ±no_sync
+  # gradient accumulation with/without no_sync
   torchrun --standalone --nproc_per_node=8 bench_ddp.py --mode ddp --gas 4 --no-sync {0,1} --out ../results/ddp.csv
 """
 
@@ -38,7 +38,7 @@ def main():
     ap.add_argument("--mode", choices=["single", "ddp"], required=True)
     ap.add_argument("--bucket-mb", type=float, default=25.0)
     ap.add_argument("--gas", type=int, default=1)
-    ap.add_argument("--no-sync", type=int, default=1)  # 累积时是否用 no_sync
+    ap.add_argument("--no-sync", type=int, default=1)  # whether to use no_sync during accumulation
     ap.add_argument("--out", default="../results/ddp.csv")
     args = ap.parse_args()
 
@@ -67,7 +67,7 @@ def main():
 
     def one_step():
         for micro in range(args.gas):
-            # no_sync: 前 gas-1 个 microbatch 跳过 all-reduce
+            # no_sync: skip the all-reduce for the first gas-1 microbatches
             skip = is_ddp and args.no_sync and micro < args.gas - 1
             ctx = model.no_sync() if skip else nullcontext()
             with ctx, autocast:

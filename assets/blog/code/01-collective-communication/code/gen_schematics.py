@@ -1,12 +1,12 @@
 """
-第 01 篇示意图生成器(程序化 SVG,保证全系列视觉一致)。
+Schematic generator for post 01 (programmatic SVG, keeps the whole series visually consistent).
 
-生成:
-  figures/fig-1-six-primitives.svg   六种集合通信原语总览
-  figures/fig-2-ring-allreduce.svg   ring all-reduce 逐步状态(N=4)
-  figures/fig-3-topology.svg         本机 PCIe 拓扑(8 卡, PIX 对 + 双 NUMA)
+Generates:
+  figures/fig-1-six-primitives.svg   overview of the six collective primitives
+  figures/fig-2-ring-allreduce.svg   ring all-reduce step-by-step state (N=4)
+  figures/fig-3-topology.svg         local PCIe topology (8 GPUs, PIX pairs + dual NUMA)
 
-配色遵循 _shared/style-guide.md。图内文字英文(中英文版共用)。
+Colors follow _shared/style-guide.md. In-figure text is English (shared by the CN and EN versions).
 """
 
 import os
@@ -64,7 +64,7 @@ def arrow(x1, y1, x2, y2, dash=False, width=1.6):
 
 # ---------------------------------------------------------------- fig 1
 def fig1():
-    """六原语总览:每个 panel 上排 before、下排 after,4 ranks。"""
+    """Six-primitive overview: each panel shows before on top, after below, 4 ranks."""
     W, H = 960, 742
     s = svg_open(W, H)
     s += text(W / 2, 30, "The six collective primitives (N = 4 GPUs)", 17, TEXT, weight="bold")
@@ -144,8 +144,8 @@ def fig1():
 
 # ---------------------------------------------------------------- fig 2
 def fig2():
-    """ring all-reduce 状态演化:行 = 步骤,列 = 4 GPU。
-    chip 亮度 = 该分片已累加的项数;Σ = 4 项全齐。"""
+    """Ring all-reduce state evolution: rows = steps, columns = 4 GPUs.
+    Chip brightness = number of terms accumulated in that shard. Sigma = all 4 terms present."""
     W, H = 960, 700
     s = svg_open(W, H)
     s += text(W / 2, 30, "Ring All-Reduce, step by step (N = 4)", 17, TEXT, weight="bold")
@@ -154,8 +154,8 @@ def fig2():
     # accumulated counts per (step, rank, chunk)
     # phase 1: reduce-scatter around the ring; phase 2: all-gather
     def rs_counts(step):  # step = 0..3 (0 = initial)
-        # RS 第 t 步(1-indexed):rank k 收到 chunk (k-t) mod 4 的部分和(已含 t 项),
-        # 加上自己的一份 -> t+1 项。
+        # RS step t (1-indexed): rank k receives the partial sum of chunk (k-t) mod 4
+        # (already holding t terms), adds its own share -> t+1 terms.
         cnt = [[1] * 4 for _ in range(4)]
         for t in range(1, step + 1):
             for k in range(4):
@@ -228,7 +228,7 @@ def fig2():
 
 # ---------------------------------------------------------------- fig 3
 def fig3():
-    """本机拓扑:2 NUMA × 2 PCIe switch × 2 GPU。"""
+    """Local topology: 2 NUMA nodes x 2 PCIe switches x 2 GPUs."""
     W, H = 960, 400
     s = svg_open(W, H)
     s += text(W / 2, 30, "Our testbed: 8&#215; RTX PRO 6000, PCIe only &#8212; no NVLink", 17, TEXT, weight="bold")

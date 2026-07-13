@@ -1,4 +1,4 @@
-"""RMNP vs Muon 独立篇实验图:fig-3 (a) GPT-2 Large 全集四方案 (b) 单矩阵尺寸扫描。"""
+"""RMNP vs Muon standalone post experiment figure: fig-3 (a) all four schemes on the GPT-2 Large matrix set (b) per-matrix size sweep."""
 
 import csv
 import os
@@ -47,7 +47,7 @@ def main():
     ax1.set_xlabel("optimizer precondition step (ms, log scale)")
     for yi, v, b in zip(y, ms, mib):
         note = f"{v:.1f} ms · {b:.0f} MiB/GPU moved" if b >= 1 else f"{v:.1f} ms · 0 comm"
-        if v > 100:  # 长条:标注画进条内,右对齐
+        if v > 100:  # long bar: draw the label inside the bar, right-aligned
             ax1.annotate(note, (v * 0.9, yi), va="center", ha="right", fontsize=9,
                          color="#0b0f19", fontweight="bold")
         else:
