@@ -4,7 +4,7 @@ title: "Optimizers in a Sharded World: Muon's O(mn) vs RMNP's Zero"
 date: 2026-07-13 23:50:00
 description: "The locality of an optimizer's precondition operator × the geometry of parameter sharding = a communication bill you can measure. On 8 GPUs, one optimizer step over all of GPT-2 Large's matrices costs RMNP 5.3 ms with zero communication and Muon 360 ms moving 1.15 GiB per GPU — a 67× gap that grows with scale, and the sharded RMNP update is bit-identical to the full-matrix one."
 tags: distributed-training optimization deep-learning
-categories: distributed-training
+categories: optimizers
 thumbnail: assets/img/blog/distributed/rmnp-vs-muon/fig-1-locality-geometry.png
 toc:
   sidebar: left

@@ -4,16 +4,6 @@ permalink: /blog/
 title: blog
 nav: true
 nav_order: 1
-pagination:
-  enabled: true
-  collection: posts
-  permalink: /page/:num/
-  per_page: 5
-  sort_field: date
-  sort_reverse: true
-  trail:
-    before: 1 # The number of links before the current page
-    after: 3 # The number of links after the current page
 ---
 
 <div class="post">
@@ -101,15 +91,25 @@ pagination:
 
 {% endif %}
 
-  <ul class="post-list">
+  {% comment %} 按类别分组:每个 display_category 一个小节;组内按日期正序(系列文章 #0→#8 顺读)。 {% endcomment %}
+  {% for category in site.display_categories %}
+    {% assign catposts = site.posts | where_exp: "p", "p.categories contains category" | sort: "date" %}
+    {% if catposts.size > 0 %}
 
-    {% if page.pagination.enabled %}
-      {% assign postlist = paginator.posts %}
+  <div class="header-bar" style="padding-bottom: 0.5rem;">
+    {% if category == "distributed-training" %}
+      <h2 style="text-transform: none;">Distributed Training, Illustrated</h2>
+      <p class="post-description">a series — read in order; one idea per post, every claim measured on 8 GPUs</p>
+    {% elsif category == "optimizers" %}
+      <h2 style="text-transform: none;">Optimizers</h2>
+      <p class="post-description">standalone posts on optimization algorithms and their systems behavior</p>
     {% else %}
-      {% assign postlist = site.posts %}
+      <h2 style="text-transform: none;">{{ category }}</h2>
     {% endif %}
+  </div>
 
-    {% for post in postlist %}
+  <ul class="post-list">
+    {% for post in catposts %}
 
     {% if post.external_source == blank %}
       {% assign read_time = post.content | number_of_words | divided_by: 180 | plus: 1 %}
@@ -118,7 +118,6 @@ pagination:
     {% endif %}
     {% assign year = post.date | date: "%Y" %}
     {% assign tags = post.tags | join: "" %}
-    {% assign categories = post.categories | join: "" %}
 
     <li>
 
@@ -161,17 +160,6 @@ pagination:
               {% endunless %}
               {% endfor %}
           {% endif %}
-
-          {% if categories != "" %}
-          &nbsp; &middot; &nbsp;
-            {% for category in post.categories %}
-            <a href="{{ category | slugify | prepend: '/blog/category/' | prepend: site.baseurl}}">
-              <i class="fa-solid fa-tag fa-sm"></i> {{ category }}</a>
-              {% unless forloop.last %}
-                &nbsp;
-              {% endunless %}
-              {% endfor %}
-          {% endif %}
     </p>
 
 {% if post.thumbnail %}
@@ -188,9 +176,7 @@ pagination:
     {% endfor %}
 
   </ul>
-
-{% if page.pagination.enabled %}
-{% include pagination.liquid %}
-{% endif %}
+    {% endif %}
+  {% endfor %}
 
 </div>
