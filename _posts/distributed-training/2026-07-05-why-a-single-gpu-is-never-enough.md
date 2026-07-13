@@ -47,8 +47,8 @@ So we must use many GPUs. And every multi-GPU scheme ever devised is an answer t
 
 Three players that don't occupy an independent dimension but matter just as much:
 
-- **ZeRO / FSDP** (posts #3, #4): an upgrade of DP — the model still computes as a full replica, but the redundant entries of the 16Ψ ledger (optimizer state, gradients, parameters) are sharded across the DP group. It cuts **storage**, not computation;
-- **SP** — sequence parallelism (post #6): a companion to TP that shards the activations TP cannot reach (LayerNorm, dropout) along the sequence dimension;
+- **ZeRO / FSDP** (posts #3, #4): an upgrade of DP — the model still computes as a full replica, but the redundant entries of the 16Ψ ledger (optimizer state, gradients, parameters) are sharded across the DP group. It cuts **storage**, not computation.
+- **SP** — sequence parallelism (post #6): a companion to TP that shards the activations TP cannot reach (LayerNorm, dropout) along the sequence dimension.
 - **Mixed precision** (post #8): the very rules that make the ledger above read bf16/fp32 in the first place.
 
 Real large-scale training is a **product** of these dimensions: the GPUs form a multi-dimensional grid `ep × pp × dp × cp × tp`, and every GPU belongs to five communication groups at once. The composition is not arbitrary — one iron rule decides the layout: **the more often a dimension communicates, the faster the interconnect it must sit on.**

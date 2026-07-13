@@ -23,7 +23,7 @@ The two generations have nearly identical memory/communication behavior (both ar
 
 {% include figure.liquid loading="eager" path="assets/img/blog/distributed/04/fig-1-cut-geometry.svg" class="img-fluid rounded" zoomable=true %}
 
-- **FSDP1 (FlatParameter)**: all parameters of a wrap unit are **flattened and concatenated** into one giant 1-D buffer, split equally **by element count** across $$N$$ ranks. A shard is a byte range — it crosses parameter boundaries and slices matrix rows mid-way. The upside is simplicity (one buffer, one all-gather); the price is that a shard loses all mathematical structure: it is not a matrix, not rows — just bytes. Per-parameter states (freezing, mixed dtypes, per-param optimizer settings) become awkward;
+- **FSDP1 (FlatParameter)**: all parameters of a wrap unit are **flattened and concatenated** into one giant 1-D buffer, split equally **by element count** across $$N$$ ranks. A shard is a byte range — it crosses parameter boundaries and slices matrix rows mid-way. The upside is simplicity (one buffer, one all-gather); the price is that a shard loses all mathematical structure: it is not a matrix, not rows — just bytes. Per-parameter states (freezing, mixed dtypes, per-param optimizer settings) become awkward.
 - **FSDP2 (per-parameter DTensor)**: every parameter is sharded **independently**, along **dim-0 (the row dimension)**, as a `DTensor(placements=[Shard(0)])` that remembers its global shape. **Each rank holds complete rows** — a shard is itself a small $$[\frac{m}{N} \times n]$$ matrix.
 
 FSDP2 pays zero extra communication for this (the all-gather moves the same bytes) and collects a long list of wins: per-parameter freeze/quantize/mixed-dtype, optimizer state aligned with DTensor (checkpoints addressable by logical tensor), composability with tensor parallelism's DTensor layouts, and deterministic memory release (no more FlatParameter `recordStream` haunting).
@@ -36,8 +36,8 @@ FSDP2 pays zero extra communication for this (the all-gather moves the same byte
 
 One FSDP2 step (sharding unit = one transformer block):
 
-1. **Forward**: while block $$k$$ computes, block $$k{+}1$$'s parameter all-gather is already **prefetching** on a separate NCCL stream — only the first AG is exposed (the same idea as DDP's bucket overlap in post #2 and stage-3 prefetch in post #3, making its third appearance);
-2. **Reshard** (the red ticks): the moment a block is done, its gathered full parameters are freed — memory returns to the sharded state. This is ZeRO-3 semantics;
+1. **Forward**: while block $$k$$ computes, block $$k{+}1$$'s parameter all-gather is already **prefetching** on a separate NCCL stream — only the first AG is exposed (the same idea as DDP's bucket overlap in post #2 and stage-3 prefetch in post #3, making its third appearance).
+2. **Reshard** (the red ticks): the moment a block is done, its gathered full parameters are freed — memory returns to the sharded state. This is ZeRO-3 semantics.
 3. **Backward**: the parameters were resharded, so **each block must be all-gathered again**; finished gradients reduce-scatter in buckets (fp32 reduction — precision semantics in post #8).
 
 `reshard_after_forward` is thus an explicit **memory-for-communication** knob:
@@ -52,8 +52,11 @@ We measure both sides of the trade in §5 and reconcile them against post #1's b
 
 ## 4. Reading along in real source, and usage
 
-- FSDP2 entry point: `torch.distributed.fsdp.fully_shard` (implementation under `torch/distributed/fsdp/_fully_shard/` — parameter sharding in `_fsdp_param.py`, prefetch scheduling in `_fsdp_param_group.py`); FSDP1 is the `FullyShardedDataParallel` wrapper class (FlatParameter lives in `_flat_param.py`, two-thousand-plus lines — the complexity is itself the argument);
-- Our experiment's usage (full script ships with the post):
+**FSDP2** — entry point `torch.distributed.fsdp.fully_shard`, implementation under `torch/distributed/fsdp/_fully_shard/`: parameter sharding in `_fsdp_param.py`, prefetch scheduling in `_fsdp_param_group.py`.
+
+**FSDP1** — the `FullyShardedDataParallel` wrapper class. FlatParameter lives in `_flat_param.py`, two-thousand-plus lines — the complexity is itself the argument.
+
+Our experiment's usage (full script ships with the post):
 
 ```python
 from torch.distributed.fsdp import fully_shard, MixedPrecisionPolicy
@@ -76,18 +79,18 @@ Note the API shift from FSDP1: no wrapper class — `fully_shard` transforms the
 
 **Four accounts, all reconciled:**
 
-1. **DDP resides at 11.76 GiB ≈ 16Ψ fp32 bytes** (params 4Ψ + gradient buckets 4Ψ + Adam 8Ψ = 11.5 GiB; `gradient_as_bucket_view` keeps bucket memory resident). FSDP2 resides at **1.27 GiB ≈ (4Ψ+8Ψ)/8 = 1.08 GiB** plus small buffers — **a 9.3× cut, exactly the "divide the whole ledger by N" promise**;
-2. **DDP's exposed communication**: 477 − 153 (single-GPU compute) = 324 ms ≈ one all-reduce of 3.1 GB fp32 gradients (post #1: algbw 10.2 GB/s → 304 ms, 6% off). Reducing in fp32 is brutally expensive on this PCIe box — the main reason FSDP2 (338 ms) *beats* DDP: it all-gathers bf16 parameters and streams gradient reduce-scatters at bucket granularity;
-3. **`reshard_after_forward=False` is 64.7 ms faster** ≈ the skipped backward re-all-gather of one bf16 model (1.55 GB / 21.8 GB/s ≈ 71 ms, 9% off); the price is +1.32 GiB of peak ≈ one bf16 model (1.44 GiB). **Both ends of the knob are priced, to within 10%, by post #1's bandwidth table**;
+1. **DDP resides at 11.76 GiB ≈ 16Ψ fp32 bytes** (params 4Ψ + gradient buckets 4Ψ + Adam 8Ψ = 11.5 GiB; `gradient_as_bucket_view` keeps bucket memory resident). FSDP2 resides at **1.27 GiB ≈ (4Ψ+8Ψ)/8 = 1.08 GiB** plus small buffers — **a 9.3× cut, exactly the "divide the whole ledger by N" promise**.
+2. **DDP's exposed communication**: 477 − 153 (single-GPU compute) = 324 ms ≈ one all-reduce of 3.1 GB fp32 gradients (post #1: algbw 10.2 GB/s → 304 ms, 6% off). Reducing in fp32 is brutally expensive on this PCIe box — the main reason FSDP2 (338 ms) *beats* DDP: it all-gathers bf16 parameters and streams gradient reduce-scatters at bucket granularity.
+3. **`reshard_after_forward=False` is 64.7 ms faster** ≈ the skipped backward re-all-gather of one bf16 model (1.55 GB / 21.8 GB/s ≈ 71 ms, 9% off); the price is +1.32 GiB of peak ≈ one bf16 model (1.44 GiB). **Both ends of the knob are priced, to within 10%, by post #1's bandwidth table**.
 4. Compared with post #3: FSDP2's resident 1.27 GiB is **half of DeepSpeed stage 3's 2.53 GiB** — native per-param DTensor bookkeeping carries far less buffer overhead than an external implementation. Not a knock on DeepSpeed; a structural advantage of living inside the framework.
 
 > Honest boundary: the DDP column uses fp32 parameters (classic mixed precision); with pure-bf16-parameter training its memory and communication both halve — the gap narrows, the conclusion stands. And this machine has no NVLink; on NVLink clusters the throughput differences compress.
 
 ## 6. Summary
 
-1. FSDP = native ZeRO-3; the generational difference is **shard geometry**: FSDP1 flattens and splits by elements (shard = byte range, rows severed), FSDP2 shards each param along dim-0 (**shard = complete rows, a matrix in its own right**);
-2. The runtime beats three times per unit: gather on demand, prefetch ahead, reshard behind; `reshard_after_forward` toggles ZeRO-2/3 semantics, and both prices are computable from post #1's table (measured <10% error);
-3. Measured: resident memory 11.76 → 1.27 GiB (9.3×, reconciling 16Ψ → 16Ψ/8); FSDP2 carries half the buffer overhead of DeepSpeed stage 3; on machines where fp32 reduction is expensive, FSDP2 is even faster than DDP;
+1. FSDP = native ZeRO-3; the generational difference is **shard geometry**: FSDP1 flattens and splits by elements (shard = byte range, rows severed), FSDP2 shards each param along dim-0 (**shard = complete rows, a matrix in its own right**).
+2. The runtime beats three times per unit: gather on demand, prefetch ahead, reshard behind; `reshard_after_forward` toggles ZeRO-2/3 semantics, and both prices are computable from post #1's table (measured <10% error).
+3. Measured: resident memory 11.76 → 1.27 GiB (9.3×, reconciling 16Ψ → 16Ψ/8); FSDP2 carries half the buffer overhead of DeepSpeed stage 3; on machines where fp32 reduction is expensive, FSDP2 is even faster than DDP.
 4. Row-complete shards are a detail today and the protagonist of post #9.
 
 **Next: Tensor Parallelism — Megatron's two cuts.** So far the model itself still runs whole on every GPU (only *storage* was sharded). TP is the first scheme to cut **the computation of a single layer**: how Column and Row cuts pair into a "zero communication in the middle" combo, the conjugate operators $$f/g$$, and the bill of four activation all-reduces per layer per step.

@@ -83,7 +83,7 @@ A char-level GPT (6 layers, width 384, ~10M params — model definition ships wi
 
 Three readings, each ruder than the last:
 
-1. **Mixed is bit-for-bit indistinguishable from fp32** (panel (a): the two curves sit exactly on top of each other, 0.079 vs 0.078) while running 3.6× faster on 35% less memory — the mixed-precision promise, "fp32 convergence at bf16 speed", cashes out cleanly at this scale;
+1. **Mixed is bit-for-bit indistinguishable from fp32** (panel (a): the two curves sit exactly on top of each other, 0.079 vs 0.078) while running 3.6× faster on 35% less memory — the mixed-precision promise, "fp32 convergence at bf16 speed", cashes out cleanly at this scale.
 2. **Naive all-bf16 does not break.** Its train loss tracks throughout, and its val loss is the *best* of the three (3.51 vs 4.24 — 10M parameters memorizing 1.1M characters overfit long before step 6000; val turns upward from ~step 1300, and bf16's rounding noise acts as a regularizer, overfitting slowest). The textbook says training without a master copy fails; the toy says it's fine. Who's lying?
 3. Panel (c)'s **swallow audit** provides the clue: inside the mixed run (whose fp32 params are a trustworthy reference), every 200 steps we take the step's true update $$\Delta$$ and simulate bf16 rounding per parameter — the fraction where $$(w_{\rm bf16}+\Delta)$$ rounds back to exactly $$w_{\rm bf16}$$ climbs from ~25% at full LR to **87%** as cosine decay bites. In late training, four updates out of five would land on a bf16 weight and change nothing. The toy shrugs it off only because by then the task is already learned — those updates carried nothing. **When updates shrink not because learning is done but because the LR schedule must decay while the task is far from learned — the everyday situation of large-model training — what gets swallowed is real progress.**
 
@@ -97,17 +97,21 @@ The left panel is §3.1's 5× argument. The right panel answers "why does fp16 n
 
 ## 5. Reading along in real source
 
-- **PyTorch autocast**: `torch/amp` keeps an operator list — matmul/conv run bf16, softmax/layer_norm/loss stay fp32 — inserting casts at op boundaries. You never see the casts in your code, but they are real;
-- **FSDP2**: `MixedPrecisionPolicy(param_dtype=torch.bfloat16, reduce_dtype=torch.float32)` (used in post #4) — sharded params (state) in fp32, all-gathered compute copies (flow) in bf16, reduce-scatter in fp32;
-- **nanotron**: `FP32GradientAccumulator` in `src/nanotron/optim/gradient_accumulator.py` — the textbook implementation of defense line 2;
-- **Megatron-LM**: `Float16OptimizerWithFloat16Params` in `megatron/core/optimizer/optimizer.py` — the `main_params` (fp32 master) / `model_params` (bf16) double bookkeeping, plus `--accumulate-allreduce-grads-in-fp32`;
-- **DeepSpeed ZeRO**: the "optimizer state" that stage 1 shards (post #3) *includes* the fp32 master — which is why ZeRO-1 saves $$(4+4+4)\Psi/N$$ while the $$2\Psi$$ bf16 copy stays replicated.
+**PyTorch autocast** — `torch/amp` keeps an operator list: matmul/conv run bf16, softmax/layer_norm/loss stay fp32, casts inserted at op boundaries. You never see the casts in your code, but they are real.
+
+**FSDP2** — `MixedPrecisionPolicy(param_dtype=torch.bfloat16, reduce_dtype=torch.float32)`, used in post #4. Sharded params (state) in fp32, all-gathered compute copies (flow) in bf16, reduce-scatter in fp32.
+
+**nanotron** — `FP32GradientAccumulator` in `src/nanotron/optim/gradient_accumulator.py`: the textbook implementation of defense line 2.
+
+**Megatron-LM** — `Float16OptimizerWithFloat16Params` in `megatron/core/optimizer/optimizer.py`: the `main_params` (fp32 master) / `model_params` (bf16) double bookkeeping, plus `--accumulate-allreduce-grads-in-fp32`.
+
+**DeepSpeed ZeRO** — the "optimizer state" that stage 1 shards (post #3) *includes* the fp32 master — which is why ZeRO-1 saves $$(4+4+4)\Psi/N$$ while the $$2\Psi$$ bf16 copy stays replicated.
 
 ## 6. Summary — and closing the series
 
-1. Precision and range are different purchases: fp16 spends its 16 bits on mantissa and pays with a narrow range (loss scaling required as life support); bf16 spends them on fp32's full range and pays with 2.4 digits (no support needed) — that is how the bf16 era happened;
-2. The whole design in one line: **flow runs bf16 (activations, in-flight gradients — per-token volume), state stays fp32 (masters, moments, accumulation buffers — per-parameter ledgers)**, stitched by the hardware fp32 accumulator, one lossless upcast, and one per-step reprojection;
-3. Why the master copy cannot be skipped is computable: updates below $$|w|/512$$ round to exactly zero in bf16 — 87% of updates by the end of LR decay (measured). At toy scale the disease hides (rounding noise even regularizes); isolate small updates and the no-master model stalls at 2.41 while mixed grinds to 1.50;
+1. Precision and range are different purchases: fp16 spends its 16 bits on mantissa and pays with a narrow range (loss scaling required as life support); bf16 spends them on fp32's full range and pays with 2.4 digits (no support needed) — that is how the bf16 era happened.
+2. The whole design in one line: **flow runs bf16 (activations, in-flight gradients — per-token volume), state stays fp32 (masters, moments, accumulation buffers — per-parameter ledgers)**, stitched by the hardware fp32 accumulator, one lossless upcast, and one per-step reprojection.
+3. Why the master copy cannot be skipped is computable: updates below $$|w|/512$$ round to exactly zero in bf16 — 87% of updates by the end of LR decay (measured). At toy scale the disease hides (rounding noise even regularizes); isolate small updates and the no-master model stalls at 2.41 while mixed grinds to 1.50.
 4. Post #0's $$16\Psi/18\Psi$$ now has every line item sourced: $$2\Psi$$ (bf16 params) $$+\,4\Psi$$ (fp32 master) $$+\,4\Psi+4\Psi$$ ($$m$$, $$v$$) $$+\,2\Psi|4\Psi$$ (gradients, depending on accumulation precision).
 
 **This closes the series.** One thread ran through all nine posts: every design decision in distributed training reduces to a handful of accounts you can check by hand — communication volume (post #1's bandwidth table), memory (the $$\Psi$$ ledger), bubbles (grid geometry), numerics (this post's one-in-512). Next time you meet any parallelism scheme, may your first instinct be: *let me price this out and run the numbers.*

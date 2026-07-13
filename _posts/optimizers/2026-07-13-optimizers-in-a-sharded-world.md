@@ -19,7 +19,7 @@ Post #4 of the series planted a sentence when introducing FSDP2: its per-paramet
 
 Both protagonists are "matrix-aware" optimizers. For every 2D weight $$W\in\mathbb{R}^{m\times n}$$ they keep momentum $$M_t=\mu M_{t-1}+G_t$$; they differ only in the step that turns momentum into an update direction:
 
-- **Muon** (Keller Jordan 2024; used by Moonlight/Kimi for 16B+ pretraining): Newton-Schulz iteration approximating orthogonalization, $$\mathrm{NS}(M)\approx UV^\top$$ (flatten all singular values). Five iterations, three matmuls each;
+- **Muon** (Keller Jordan 2024; used by Moonlight/Kimi for 16B+ pretraining): Newton-Schulz iteration approximating orthogonalization, $$\mathrm{NS}(M)\approx UV^\top$$ (flatten all singular values). Five iterations, three matmuls each.
 - **RMNP** (Deng, Ouyang et al., ICML 2026): per-row L2 normalization, $$\text{update}_{i,:} = M_{i,:}/\lVert M_{i,:}\rVert_2$$ — one elementwise kernel.
 
 They are the same family of methods: Muon is steepest descent under a spectral-norm constraint (an LMO), RMNP under a row-wise $$(q,2)$$ mixed-norm constraint. Different constraint geometry ⇒ a completely different **dependency range** for the update. That dependency range is the entire distributed story.
@@ -79,9 +79,9 @@ All 2D matrices of GPT-2 Large (36 layers × 4 each = 144 matrices, 708M params)
 
 Five readings:
 
-1. **67×** (5.3 vs 359.5). And column-cut RMNP ties the zero-comm version exactly — the ~3 MiB vector all-reduce really is, as derived, negligible;
-2. **Decomposing the bill** (cross-checking the series): running the 144 NS iterations bare on one GPU takes 302.9 ms, so Muon-SC's 360 ≈ **303 compute + 57 communication**. On the communication side: 1181 MiB ÷ 57 ms ≈ **20.4 GiB/s**, consistent with the gather bandwidth post #1 measured on this machine for ~10 MiB messages (PCIe platform). Those 57 ms are priced by bandwidth — a rigid floor that faster GPUs do not remove;
-3. **Amortizing compute is *slower*** (457 > 360): the round-robin variant serializes 144 "owner finishes NS, then broadcast" dependencies and doubles the traffic; on PCIe, saving 7/8 of the compute is wiped out entirely. **This is precisely the problem Canzona (the Qwen team, arXiv 2602.06079) spends an entire systems paper solving**: α-balanced static partitioning for load balance, an asynchronous pipeline to hide the gathers — earning 1.57× end-to-end and 5.8× on optimizer latency at Qwen3-32B/256 GPUs. A first-rate engineering team publishing a paper to remedy one fact: *the optimizer needs whole matrices, and the system has none*;
+1. **67×** (5.3 vs 359.5). And column-cut RMNP ties the zero-comm version exactly — the ~3 MiB vector all-reduce really is, as derived, negligible.
+2. **Decomposing the bill** (cross-checking the series): running the 144 NS iterations bare on one GPU takes 302.9 ms, so Muon-SC's 360 ≈ **303 compute + 57 communication**. On the communication side: 1181 MiB ÷ 57 ms ≈ **20.4 GiB/s**, consistent with the gather bandwidth post #1 measured on this machine for ~10 MiB messages (PCIe platform). Those 57 ms are priced by bandwidth — a rigid floor that faster GPUs do not remove.
+3. **Amortizing compute is *slower*** (457 > 360): the round-robin variant serializes 144 "owner finishes NS, then broadcast" dependencies and doubles the traffic; on PCIe, saving 7/8 of the compute is wiped out entirely. **This is precisely the problem Canzona (the Qwen team, arXiv 2602.06079) spends an entire systems paper solving**: α-balanced static partitioning for load balance, an asynchronous pipeline to hide the gathers — earning 1.57× end-to-end and 5.8× on optimizer latency at Qwen3-32B/256 GPUs. A first-rate engineering team publishing a paper to remedy one fact: *the optimizer needs whole matrices, and the system has none*.
 4. **Distributed RMNP is ten lines** — a literal transcription of fig-1's left panel; no new communication pattern, no touching ZeRO's bucket layout, nothing to hide:
 
 ```python
@@ -99,8 +99,8 @@ The single-matrix size sweep (panel (b)) adds the final twist: the gap itself gr
 
 ## 5. Why the gap grows with scale
 
-1. **Traffic scaling**: Muon's optimizer communication ∝ total parameter count Ψ. A 7B model moves ~14 GB of bf16 momentum per GPU per step, landing on the busiest TP links or cross-node DP links; RMNP's counterpart is $$\Sigma m \approx \Psi/n$$ — three orders smaller, and exactly zero under most layouts;
-2. **Critical-path position**: the optimizer step sits in each step's **serial segment** — backward finished, next forward not started — where communication has no compute to overlap with (contrast: gradient all-reduce hides inside backward, series post #2). Canzona's asynchronous pipeline exists to manufacture something to overlap; RMNP has nothing that needs hiding;
+1. **Traffic scaling**: Muon's optimizer communication ∝ total parameter count Ψ. A 7B model moves ~14 GB of bf16 momentum per GPU per step, landing on the busiest TP links or cross-node DP links; RMNP's counterpart is $$\Sigma m \approx \Psi/n$$ — three orders smaller, and exactly zero under most layouts.
+2. **Critical-path position**: the optimizer step sits in each step's **serial segment** — backward finished, next forward not started — where communication has no compute to overlap with (contrast: gradient all-reduce hides inside backward, series post #2). Canzona's asynchronous pipeline exists to manufacture something to overlap; RMNP has nothing that needs hiding.
 3. **Parallelism trend**: collective latency grows with group size (post #1: the latency floor climbs 11→65 µs from 2 to 8 ranks). Muon's gathers get harder to hide; RMNP's cost does not grow with parallelism at all.
 
 ## 6. The convenience is not bought with convergence
@@ -109,9 +109,9 @@ All of this matters only if RMNP holds up as an optimizer. The layer-wise Hessia
 
 ## 7. Summary
 
-1. The optimizer's communication bill is the product of two geometries: **the operator's dependency range × the shard's cut**. Muon's NS depends on the whole matrix → O(mn) plus a scheduling problem under any sharding; RMNP depends on single rows → 0 under FSDP2/row-TP, an O(m) decomposable reduction under column-TP;
-2. Measured on 8 GPUs, GPT-2 Large's full matrix set: 5.3 ms vs 359.5 ms (**67×**), decomposed as 303 compute + 57 comm with the comm priced correctly by post #1's bandwidth table; the compute-amortizing round-robin variant is *slower* due to serialization — distributed Muon is worth a paper (Canzona), distributed RMNP is worth ten lines;
-3. Sharded RMNP equals full-matrix RMNP bit for bit: align the operator's geometry with the shard's geometry, and distribution is free;
+1. The optimizer's communication bill is the product of two geometries: **the operator's dependency range × the shard's cut**. Muon's NS depends on the whole matrix → O(mn) plus a scheduling problem under any sharding; RMNP depends on single rows → 0 under FSDP2/row-TP, an O(m) decomposable reduction under column-TP.
+2. Measured on 8 GPUs, GPT-2 Large's full matrix set: 5.3 ms vs 359.5 ms (**67×**), decomposed as 303 compute + 57 comm with the comm priced correctly by post #1's bandwidth table; the compute-amortizing round-robin variant is *slower* due to serialization — distributed Muon is worth a paper (Canzona), distributed RMNP is worth ten lines.
+3. Sharded RMNP equals full-matrix RMNP bit for bit: align the operator's geometry with the shard's geometry, and distribution is free.
 4. The gap grows with scale: traffic ∝ Ψ, sitting on the un-overlappable critical path, with latency rising in parallelism — all three arrows point the same way.
 
 *(Series background: the memory/Ψ ledger in post #0, the collective-bandwidth table in post #1, FSDP2's dim-0 sharding in post #4, TP's row/column cuts in post #5, the bf16/fp32 conventions in post #8.)*

@@ -37,7 +37,7 @@ Read the figure in three groups, by participation topology:
 
 Two structural facts jump out:
 
-1. **all-reduce = reduce-scatter + all-gather.** Compare the last row of the figure: first let "the sum of shard $$k$$" land on rank $$k$$ (reduce-scatter), then circulate the finished shards to everyone (all-gather) — that *is* all-reduce. The volumes agree too: $$\frac{N-1}{N}S + \frac{N-1}{N}S = 2\frac{N-1}{N}S$$. This is not a coincidence but how NCCL actually implements it — and ZeRO's core idea (post #3) is precisely to split the all-reduce open in the middle and insert local computation between the two halves;
+1. **all-reduce = reduce-scatter + all-gather.** Compare the last row of the figure: first let "the sum of shard $$k$$" land on rank $$k$$ (reduce-scatter), then circulate the finished shards to everyone (all-gather) — that *is* all-reduce. The volumes agree too: $$\frac{N-1}{N}S + \frac{N-1}{N}S = 2\frac{N-1}{N}S$$. This is not a coincidence but how NCCL actually implements it — and ZeRO's core idea (post #3) is precisely to split the all-reduce open in the middle and insert local computation between the two halves.
 2. **The `all-` primitives have no root** — all ranks are symmetric. The rooted ones (broadcast/scatter/gather) have a distinguished GPU whose link becomes the bottleneck — an asymmetry that will show up undisguised in the experiments (§4).
 
 In PyTorch they map one-to-one onto `torch.distributed`:
@@ -65,8 +65,8 @@ Ring all-reduce does exactly this: arrange the $$N$$ GPUs in a logical ring, cut
 
 How to read it:
 
-- **Phase 1 (RS steps 1–3)**: each step, every GPU *sends one shard, receives one shard, and adds what it received into its own copy*. Partial sums travel clockwise, absorbing one term per hop; after $$N-1$$ steps each GPU owns **one fully-summed shard** (Σ);
-- **Phase 2 (AG steps 1–3)**: the finished shards travel around the ring once more, pure forwarding, no arithmetic; everyone collects all Σ shards;
+- **Phase 1 (RS steps 1–3)**: each step, every GPU *sends one shard, receives one shard, and adds what it received into its own copy*. Partial sums travel clockwise, absorbing one term per hop; after $$N-1$$ steps each GPU owns **one fully-summed shard** (Σ).
+- **Phase 2 (AG steps 1–3)**: the finished shards travel around the ring once more, pure forwarding, no arithmetic; everyone collects all Σ shards.
 - At every step, every GPU is **sending (to its successor) and receiving (from its predecessor) at the same time** — both directions of the full-duplex link saturated, no GPU idle. This is why counting only sends is legitimate: receive = send, and they don't contend.
 
 **The bill**: each GPU sends $$2(N-1)$$ times, one $$\frac{S}{N}$$-byte shard each:
@@ -85,7 +85,7 @@ $$
 
 where $$B$$ is the one-directional link bandwidth and $$\alpha$$ the fixed per-step overhead (kernel launch + one hop). Two regimes follow:
 
-- **Large $$S$$**: bandwidth-dominated, $$T \approx 2S/B$$, independent of $$N$$ — big tensors scale freely;
+- **Large $$S$$**: bandwidth-dominated, $$T \approx 2S/B$$, independent of $$N$$ — big tensors scale freely.
 - **Small $$S$$**: latency-dominated, $$T \approx 2(N-1)\alpha$$, independent of $$S$$ — small tensors pay pure latency, and it grows linearly with $$N$$.
 
 The boundary between the regimes is directly visible in the measurements (§4.3), and it is the entire reason DDP buckets small gradients into big ones (post #2).
@@ -94,7 +94,7 @@ The boundary between the regimes is directly visible in the measurements (§4.3)
 
 Benchmarking collectives has a classic unit trap; let's nail it down first (the nccl-tests convention, used in all plots below):
 
-- **Algorithm bandwidth** $$\text{algbw} = S/t$$: the user's view — "my $$S$$-byte tensor took $$t$$ seconds to synchronize." It includes the algorithm's redundant data movement, so it is **not comparable across primitives**;
+- **Algorithm bandwidth** $$\text{algbw} = S/t$$: the user's view — "my $$S$$-byte tensor took $$t$$ seconds to synchronize." It includes the algorithm's redundant data movement, so it is **not comparable across primitives**.
 - **Bus bandwidth** $$\text{busbw} = \text{algbw} \times \text{correction}$$: the hardware's view — normalized to "traffic actually carried per link," comparable across primitives and machines, and directly checkable against the link's spec sheet.
 
 | Primitive | Correction factor | Source |
@@ -128,8 +128,8 @@ This machine has no NVLink — a commoner topology, and that's a feature: the bo
 
 Three layers of information:
 
-1. **The four ring collectives (all-reduce / all-gather / reduce-scatter / broadcast) crowd onto the same ~16–19 GB/s plateau.** This is what the busbw convention is for: the algorithms differ, but normalized to link traffic they all hit the same wall — the ring's bottleneck link. On our topology the ring must cross the UPI socket link (the red link in the topology figure), and every link on the ring is busy in both directions at once; the effective one-directional share is this ~18 GB/s;
-2. **scatter/gather reach 44–50 GB/s** — they are not rings: the root does one-way point-to-point distribution/collection to $$N-1$$ distinct peers, exposing the practical one-directional bandwidth of a single PCIe Gen5 x16 link (~50+ GB/s). Same machine, same wires, **2.5× more usable bandwidth just by changing the communication pattern** — communication performance is a function of algorithm × topology, not a hardware constant;
+1. **The four ring collectives (all-reduce / all-gather / reduce-scatter / broadcast) crowd onto the same ~16–19 GB/s plateau.** This is what the busbw convention is for: the algorithms differ, but normalized to link traffic they all hit the same wall — the ring's bottleneck link. On our topology the ring must cross the UPI socket link (the red link in the topology figure), and every link on the ring is busy in both directions at once; the effective one-directional share is this ~18 GB/s.
+2. **scatter/gather reach 44–50 GB/s** — they are not rings: the root does one-way point-to-point distribution/collection to $$N-1$$ distinct peers, exposing the practical one-directional bandwidth of a single PCIe Gen5 x16 link (~50+ GB/s). Same machine, same wires, **2.5× more usable bandwidth just by changing the communication pattern** — communication performance is a function of algorithm × topology, not a hardware constant.
 3. **"AR = RS + AG", empirically**: at $$S = 1$$ GiB, $$t_{\text{AR}} = 105.3$$ ms while $$t_{\text{RS}} + t_{\text{AG}} = 59.2 + 49.3 = 108.5$$ ms — a 3% discrepancy. The textbook identity holds at millisecond precision. And the §3 corollary checks out: algbw(AR) = 10.2 GB/s ≈ half of algbw(AG) = 21.8 GB/s ✓.
 
 ### 4.2 What adding GPUs does: all-reduce on 2 / 4 / 8 cards
@@ -148,15 +148,17 @@ To feel the weight of that number: a GPT-2's LayerNorm weight is a few KB. If ev
 
 ## 5. Reading along in real source
 
-- The six calls benchmarked here are the very ones production frameworks issue: DDP's gradient sync is an `all_reduce` per gradient bucket (the bucketing machinery lives in PyTorch's `torch/csrc/distributed/c10d/reducer.cpp`, entered from `torch.nn.parallel.DistributedDataParallel`); ZeRO/FSDP replace it with `reduce_scatter_tensor` + `all_gather_into_tensor` (posts #3–#4);
-- NCCL's ring: channel construction in the topology engine (`ncclTopoCompute`), the two-phase pipelined ring in `src/device/all_reduce.h`. NCCL also auto-switches between ring/tree algorithms and LL/LL128/Simple protocols by message size — the small bump of the broadcast curve at 1 MiB in fig-4 is such a protocol switch showing through;
-- A live example from our own repo: the Moonlight-style optimizer in [MARS](https://github.com/AGI-Arena/MARS) (`MARS/optimizers/muon.py`) ends each step with one `dist.all_reduce(updates_flat)` — you can now price it exactly: $$S$$ = total parameter bytes, so each GPU pays an extra $$2\frac{N-1}{N}S$$ per step.
+**PyTorch DDP** — the six calls benchmarked here are the very ones production frameworks issue. DDP's gradient sync is one `all_reduce` per gradient bucket; the bucketing machinery lives in `torch/csrc/distributed/c10d/reducer.cpp`, entered from `torch.nn.parallel.DistributedDataParallel`. ZeRO and FSDP replace it with `reduce_scatter_tensor` + `all_gather_into_tensor` (posts #3–#4).
+
+**NCCL** — channel construction in the topology engine (`ncclTopoCompute`), the two-phase pipelined ring in `src/device/all_reduce.h`. NCCL also auto-switches between ring/tree algorithms and LL/LL128/Simple protocols by message size — the small bump of the broadcast curve at 1 MiB in fig-4 is such a protocol switch showing through.
+
+**MARS (our own repo)** — the Moonlight-style optimizer in [MARS](https://github.com/AGI-Arena/MARS) (`MARS/optimizers/muon.py`) ends each step with one `dist.all_reduce(updates_flat)`. You can now price it exactly: with $$S$$ the total parameter bytes, each GPU pays an extra $$2\frac{N-1}{N}S$$ per step.
 
 ## 6. Summary
 
-1. Six primitives are the communication vocabulary of all distributed training; **all-reduce = reduce-scatter + all-gather**, confirmed at 3% measurement error;
-2. Ring all-reduce costs each GPU $$2\frac{N-1}{N}S < 2S$$, **independent of $$N$$** — the foundation of DP scalability; the price is a latency term $$2(N-1)\alpha$$ linear in $$N$$, so small-tensor collectives are pure latency;
-3. Conventions: compare performance in busbw. Measured, the four ring collectives hit one shared wall (the bottleneck link) while rooted primitives expose single-link one-way bandwidth — a 2.5× spread on the same hardware;
+1. Six primitives are the communication vocabulary of all distributed training; **all-reduce = reduce-scatter + all-gather**, confirmed at 3% measurement error.
+2. Ring all-reduce costs each GPU $$2\frac{N-1}{N}S < 2S$$, **independent of $$N$$** — the foundation of DP scalability; the price is a latency term $$2(N-1)\alpha$$ linear in $$N$$, so small-tensor collectives are pure latency.
+3. Conventions: compare performance in busbw. Measured, the four ring collectives hit one shared wall (the bottleneck link) while rooted primitives expose single-link one-way bandwidth — a 2.5× spread on the same hardware.
 4. This machine's numbers (pure PCIe, dual NUMA): ring collectives ~18 GB/s, point-to-point one-way ~50 GB/s, latency floor 11→65 µs ($$N$$: 2→8), bandwidth/latency boundary ~1 MiB.
 
 **Next: Data Parallelism, part 1 — from DP to DDP.** The gradient-sync bill of $$2\frac{N-1}{N}S$$ is due every single step; DDP hides it inside the backward pass with two tricks — bucketing (against the latency floor) and compute/communication overlap (against the bandwidth term). We will sweep `bucket_cap_mb` from 1 to 500 and watch both tricks work.

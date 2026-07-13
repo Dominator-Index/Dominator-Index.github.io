@@ -29,7 +29,7 @@ From post #1: **all-reduce = reduce-scatter + all-gather**, and at the exact mom
 
 $$
 \underbrace{\text{all-reduce}(g)\;\to\;\text{everyone updates all }\theta}_{\text{DDP: every rank needs all }12\Psi\text{ of state}}
-\;\Longrightarrow\;
+\;\Longrightarrow\.
 \underbrace{\text{reduce-scatter}(g)\;\to\;\text{local update of shard }k\;\to\;\text{all-gather}(\theta')}_{\text{ZeRO-1: each rank needs }12\Psi/N}
 $$
 
@@ -51,10 +51,13 @@ Stage 3 is the qualitative jump: parameters no longer live anywhere in full. As 
 
 ## 3. Reading along in real source
 
-- DeepSpeed: stages 1/2 in `deepspeed/runtime/zero/stage_1_and_2.py` (`DeepSpeedZeroOptimizer` — bucketed reduce-scatter, partition-ownership routing in `average_tensor`); stage 3 in `stage3.py` + `partitioned_param_coordinator.py` (all-gather-on-demand with prefetch); the config surface in `zero/config.py`;
-- nanotron carries a minimal ZeRO-1 reference: `src/nanotron/optim/zero.py` (`ZeroDistributedOptimizer`, param groups split by dp rank);
-- PyTorch-native counterparts: ZeRO-1 ≈ `torch.distributed.optim.ZeroRedundancyOptimizer`; ZeRO-3 ≈ FSDP (next post's protagonist);
-- Our benchmark: same model, only `zero_optimization.stage` changes; resident and peak memory recorded separately. Full script ships with the post.
+**DeepSpeed** — stages 1/2 live in `deepspeed/runtime/zero/stage_1_and_2.py` (`DeepSpeedZeroOptimizer`: bucketed reduce-scatter, partition-ownership routing in `average_tensor`). Stage 3 is `stage3.py` plus `partitioned_param_coordinator.py` (all-gather-on-demand with prefetch), and the config surface is `zero/config.py`.
+
+**nanotron** — a minimal ZeRO-1 reference: `ZeroDistributedOptimizer` in `src/nanotron/optim/zero.py`, param groups split by dp rank.
+
+**PyTorch-native counterparts** — ZeRO-1 ≈ `torch.distributed.optim.ZeroRedundancyOptimizer`. ZeRO-3 ≈ FSDP, the next post's protagonist.
+
+**Our benchmark** — same model, only `zero_optimization.stage` changes, with resident and peak memory recorded separately. The full script ships with the post.
 
 ## 4. Experiment: the ladder, measured (GPT-2 Large, 8 GPUs)
 
@@ -64,13 +67,13 @@ Stage 3 is the qualitative jump: parameters no longer live anywhere in full. As 
 
 **The accounts that reconcile:**
 
-1. **The stage-0 → 1 drop is 7.79 GiB**; theory predicts $$12\Psi \times \frac{7}{8} = 7.57$$ GiB — 3% error. ZeRO's core claim holds precisely;
+1. **The stage-0 → 1 drop is 7.79 GiB**; theory predicts $$12\Psi \times \frac{7}{8} = 7.57$$ GiB — 3% error. ZeRO's core claim holds precisely.
 2. Stage 0 resident 10.47 GiB ≈ $$14\Psi$$ (2Ψ bf16 params + 12Ψ fp32 state); stage 1 resident 2.68 ≈ $$3.5\Psi$$ — both match the grads-are-transient ledger to within 0.2 GiB.
 
 **The accounts that don't (more instructive):**
 
-3. **Stage 1 and stage 2 measure identically** (resident 2.68 = 2.68, peak 15.01 = 15.01). The paper's table says stage 2 should save another $$2\Psi\times\frac{7}{8}\approx 1.3$$ GiB. Where did it go? **DeepSpeed's gradients are streamed anyway**: bucketed reduce-scatter (post #2's old friend) frees each bucket as it passes through, so gradients never exist in full residence. The paper's ledger books gradients as a resident line item; an efficient implementation books them as transient flow. Stage 2's savings were already collected by stage 1's plumbing;
-4. **Stage 3 resides at 2.53 GiB where the bare ledger says $$1.75\Psi \approx 1.35$$ GiB.** The extra ~1.2 GiB is all-gather working buffers and bookkeeping for the parameter shards (measured invariant to `stage3_param_persistence_threshold`: setting it to 0 changes nothing). On a 770M model, framework overhead nearly cancels stage 3's gain over stage 2 — **the 2Ψ parameter term only becomes worth sharding at 7B+ scale**, which is why "ZeRO-2 now, ZeRO-3 when the model outgrows it" is the standard playbook;
+3. **Stage 1 and stage 2 measure identically** (resident 2.68 = 2.68, peak 15.01 = 15.01). The paper's table says stage 2 should save another $$2\Psi\times\frac{7}{8}\approx 1.3$$ GiB. Where did it go? **DeepSpeed's gradients are streamed anyway**: bucketed reduce-scatter (post #2's old friend) frees each bucket as it passes through, so gradients never exist in full residence. The paper's ledger books gradients as a resident line item; an efficient implementation books them as transient flow. Stage 2's savings were already collected by stage 1's plumbing.
+4. **Stage 3 resides at 2.53 GiB where the bare ledger says $$1.75\Psi \approx 1.35$$ GiB.** The extra ~1.2 GiB is all-gather working buffers and bookkeeping for the parameter shards (measured invariant to `stage3_param_persistence_threshold`: setting it to 0 changes nothing). On a 770M model, framework overhead nearly cancels stage 3's gain over stage 2 — **the 2Ψ parameter term only becomes worth sharding at 7B+ scale**, which is why "ZeRO-2 now, ZeRO-3 when the model outgrows it" is the standard playbook.
 5. Peaks sit at 15–22 GiB: **activations (~12 GiB here, no checkpointing) are outside ZeRO's jurisdiction.** To cut them you need gradient checkpointing — or to shard the sequence dimension (post #6).
 
 ### And speed?
@@ -81,10 +84,10 @@ Sharding is not slower — stage 3 is actually the *fastest* (276 ms vs stage 0'
 
 ## 5. Summary
 
-1. ZeRO's heart is an identity: all-reduce = reduce-scatter + **local update** + all-gather — communication unchanged, optimizer state 12Ψ → 12Ψ/N;
-2. Three cumulative stages: 1 shards state (free), 2 shards grads (free), 3 shards params (+50% comm for memory fully /N);
-3. Measured: the stage-1 drop reconciles with theory to 3%; stage 1 = stage 2 (good implementations stream gradients anyway), and stage 3 carries ~1.2 GiB of framework buffers — the gaps between paper ledger and implementation are themselves the best guide to how the implementation works;
-4. Activations are a separate ledger, untouched by ZeRO;
+1. ZeRO's heart is an identity: all-reduce = reduce-scatter + **local update** + all-gather — communication unchanged, optimizer state 12Ψ → 12Ψ/N.
+2. Three cumulative stages: 1 shards state (free), 2 shards grads (free), 3 shards params (+50% comm for memory fully /N).
+3. Measured: the stage-1 drop reconciles with theory to 3%; stage 1 = stage 2 (good implementations stream gradients anyway), and stage 3 carries ~1.2 GiB of framework buffers — the gaps between paper ledger and implementation are themselves the best guide to how the implementation works.
+4. Activations are a separate ledger, untouched by ZeRO.
 5. Stage 3's prefetch makes sharding *faster* here — but at that point it is effectively a different system, and PyTorch rebuilt it natively as FSDP.
 
 **Next: FSDP — how PyTorch implements ZeRO-3.** FlatParameter (FSDP1) vs per-parameter DTensor sharded along dim-0 (FSDP2), the prefetch/reshard timeline — and why "row-aligned sharding", a seemingly innocuous implementation detail, becomes the foundation of this series' final post.
