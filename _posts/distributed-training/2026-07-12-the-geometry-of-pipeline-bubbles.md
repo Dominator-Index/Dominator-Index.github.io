@@ -90,3 +90,5 @@ Three readings:
 ---
 
 *Environment: 8× RTX PRO 6000 Blackwell (4 used), PyTorch 2.9.1, NCCL 2.27.5. Reproduce: `torchrun --standalone --nproc_per_node=4 bench_gpipe.py`. Plotting and schematic code accompanies the series, and the 1F1B slots are derived from dependency constraints, so verify them.*
+
+*All benchmark scripts, schematic generators, plotting code and raw result CSVs for this post live in [assets/blog/code/07-pipeline-parallel](https://github.com/Dominator-Index/Dominator-Index.github.io/tree/main/assets/blog/code/07-pipeline-parallel).*

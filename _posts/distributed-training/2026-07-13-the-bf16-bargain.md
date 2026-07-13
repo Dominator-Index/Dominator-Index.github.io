@@ -119,3 +119,5 @@ The left panel is §3.1's 5× argument. The right panel answers why fp16 needs l
 ---
 
 *Environment: 8× RTX PRO 6000 Blackwell (1 used), PyTorch 2.9.1, CUDA 12.8. Reproduce: `python train_precision.py` (main comparison + swallow audit + gradient histogram), `python train_precision.py --steps 3000 --warmup 0 --lr 3e-5 --min-lr 3e-5 --tag _lowlr` (small-LR mechanism isolation), and `python bench_gemm.py` (GEMM throughput). Plotting and schematic code accompanies the series.*
+
+*All benchmark scripts, schematic generators, plotting code and raw result CSVs for this post live in [assets/blog/code/08-mixed-precision](https://github.com/Dominator-Index/Dominator-Index.github.io/tree/main/assets/blog/code/08-mixed-precision).*

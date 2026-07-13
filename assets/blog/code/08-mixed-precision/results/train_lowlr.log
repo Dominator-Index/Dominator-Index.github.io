@@ -1,0 +1,115 @@
+vocab 65, train 1.00M chars
+=== fp32 ===
+[fp32] step 1: val 3.8751 train_ema 4.1952
+[fp32] step 100: val 2.6252 train_ema 2.9885
+[fp32] step 200: val 2.5167 train_ema 2.5923
+[fp32] step 300: val 2.4679 train_ema 2.4823
+[fp32] step 400: val 2.4135 train_ema 2.4223
+[fp32] step 500: val 2.3454 train_ema 2.3600
+[fp32] step 600: val 2.2786 train_ema 2.2884
+[fp32] step 700: val 2.2193 train_ema 2.2172
+[fp32] step 800: val 2.1661 train_ema 2.1500
+[fp32] step 900: val 2.1193 train_ema 2.0879
+[fp32] step 1000: val 2.0747 train_ema 2.0308
+[fp32] step 1100: val 2.0332 train_ema 1.9782
+[fp32] step 1200: val 1.9959 train_ema 1.9302
+[fp32] step 1300: val 1.9677 train_ema 1.8857
+[fp32] step 1400: val 1.9456 train_ema 1.8473
+[fp32] step 1500: val 1.9189 train_ema 1.8091
+[fp32] step 1600: val 1.8928 train_ema 1.7739
+[fp32] step 1700: val 1.8747 train_ema 1.7406
+[fp32] step 1800: val 1.8512 train_ema 1.7158
+[fp32] step 1900: val 1.8301 train_ema 1.6882
+[fp32] step 2000: val 1.8153 train_ema 1.6696
+[fp32] step 2100: val 1.7977 train_ema 1.6458
+[fp32] step 2200: val 1.7853 train_ema 1.6201
+[fp32] step 2300: val 1.7703 train_ema 1.6049
+[fp32] step 2400: val 1.7564 train_ema 1.5839
+[fp32] step 2500: val 1.7392 train_ema 1.5730
+[fp32] step 2600: val 1.7280 train_ema 1.5582
+[fp32] step 2700: val 1.7179 train_ema 1.5391
+[fp32] step 2800: val 1.7035 train_ema 1.5282
+[fp32] step 2900: val 1.6955 train_ema 1.5122
+[fp32] step 3000: val 1.6808 train_ema 1.4993
+=== mixed ===
+[mixed] step 1: val 3.8748 train_ema 4.1950
+[mixed] step 100: val 2.6249 train_ema 2.9885
+  [swallow] step 200: 92.7%
+[mixed] step 200: val 2.5167 train_ema 2.5923
+[mixed] step 300: val 2.4680 train_ema 2.4823
+  [swallow] step 400: 93.2%
+[mixed] step 400: val 2.4135 train_ema 2.4223
+[mixed] step 500: val 2.3453 train_ema 2.3600
+  [swallow] step 600: 94.1%
+[mixed] step 600: val 2.2787 train_ema 2.2884
+[mixed] step 700: val 2.2193 train_ema 2.2174
+  [swallow] step 800: 94.1%
+[mixed] step 800: val 2.1669 train_ema 2.1502
+[mixed] step 900: val 2.1196 train_ema 2.0882
+  [swallow] step 1000: 94.3%
+[mixed] step 1000: val 2.0751 train_ema 2.0310
+[mixed] step 1100: val 2.0331 train_ema 1.9784
+  [swallow] step 1200: 94.8%
+[mixed] step 1200: val 1.9960 train_ema 1.9305
+[mixed] step 1300: val 1.9677 train_ema 1.8860
+  [swallow] step 1400: 94.4%
+[mixed] step 1400: val 1.9461 train_ema 1.8477
+[mixed] step 1500: val 1.9188 train_ema 1.8095
+  [swallow] step 1600: 94.4%
+[mixed] step 1600: val 1.8931 train_ema 1.7743
+[mixed] step 1700: val 1.8756 train_ema 1.7410
+  [swallow] step 1800: 94.7%
+[mixed] step 1800: val 1.8515 train_ema 1.7163
+[mixed] step 1900: val 1.8305 train_ema 1.6885
+  [swallow] step 2000: 94.5%
+[mixed] step 2000: val 1.8154 train_ema 1.6698
+[mixed] step 2100: val 1.7980 train_ema 1.6462
+  [swallow] step 2200: 94.5%
+[mixed] step 2200: val 1.7861 train_ema 1.6205
+[mixed] step 2300: val 1.7702 train_ema 1.6052
+  [swallow] step 2400: 94.6%
+[mixed] step 2400: val 1.7566 train_ema 1.5842
+[mixed] step 2500: val 1.7396 train_ema 1.5733
+  [swallow] step 2600: 94.4%
+[mixed] step 2600: val 1.7283 train_ema 1.5585
+[mixed] step 2700: val 1.7173 train_ema 1.5394
+  [swallow] step 2800: 94.1%
+[mixed] step 2800: val 1.7040 train_ema 1.5285
+[mixed] step 2900: val 1.6958 train_ema 1.5125
+  [swallow] step 3000: 94.4%
+[mixed] step 3000: val 1.6811 train_ema 1.4996
+=== bf16 ===
+[bf16] step 1: val 4.0734 train_ema 4.1875
+[bf16] step 100: val 2.8937 train_ema 3.2373
+[bf16] step 200: val 2.6812 train_ema 2.7902
+[bf16] step 300: val 2.6195 train_ema 2.6525
+[bf16] step 400: val 2.5883 train_ema 2.5982
+[bf16] step 500: val 2.5680 train_ema 2.5708
+[bf16] step 600: val 2.5578 train_ema 2.5541
+[bf16] step 700: val 2.5484 train_ema 2.5405
+[bf16] step 800: val 2.5430 train_ema 2.5312
+[bf16] step 900: val 2.5367 train_ema 2.5219
+[bf16] step 1000: val 2.5289 train_ema 2.5141
+[bf16] step 1100: val 2.5258 train_ema 2.5084
+[bf16] step 1200: val 2.5187 train_ema 2.5036
+[bf16] step 1300: val 2.5141 train_ema 2.4978
+[bf16] step 1400: val 2.5102 train_ema 2.4938
+[bf16] step 1500: val 2.5031 train_ema 2.4876
+[bf16] step 1600: val 2.4992 train_ema 2.4802
+[bf16] step 1700: val 2.4953 train_ema 2.4761
+[bf16] step 1800: val 2.4859 train_ema 2.4711
+[bf16] step 1900: val 2.4828 train_ema 2.4651
+[bf16] step 2000: val 2.4797 train_ema 2.4620
+[bf16] step 2100: val 2.4703 train_ema 2.4568
+[bf16] step 2200: val 2.4680 train_ema 2.4478
+[bf16] step 2300: val 2.4617 train_ema 2.4450
+[bf16] step 2400: val 2.4578 train_ema 2.4384
+[bf16] step 2500: val 2.4523 train_ema 2.4358
+[bf16] step 2600: val 2.4492 train_ema 2.4301
+[bf16] step 2700: val 2.4430 train_ema 2.4241
+[bf16] step 2800: val 2.4383 train_ema 2.4206
+[bf16] step 2900: val 2.4344 train_ema 2.4157
+[bf16] step 3000: val 2.4328 train_ema 2.4116
+SUMMARY: ['fp32', 36.39, 2.514, 1.6808]
+SUMMARY: ['mixed', 10.15, 1.555, 1.6811]
+SUMMARY: ['bf16', 8.86, 1.271, 2.4328]

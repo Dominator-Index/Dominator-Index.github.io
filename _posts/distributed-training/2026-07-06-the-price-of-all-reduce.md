@@ -166,3 +166,5 @@ To feel the weight of that number, consider that a GPT-2's LayerNorm weight is a
 ---
 
 *Environment: 8× RTX PRO 6000 Blackwell, PyTorch 2.9.1, NCCL 2.27.5. Reproduce: `torchrun --standalone --nproc_per_node={2,4,8} bench_collectives.py`. Benchmark, plotting and schematic-generation code accompanies the series.*
+
+*All benchmark scripts, schematic generators, plotting code and raw result CSVs for this post live in [assets/blog/code/01-collective-communication](https://github.com/Dominator-Index/Dominator-Index.github.io/tree/main/assets/blog/code/01-collective-communication).*

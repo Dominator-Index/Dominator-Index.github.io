@@ -95,3 +95,5 @@ Sharding is not slower. Stage 3 is actually the *fastest* (276 ms vs stage 0's 3
 ---
 
 *Environment: 8× RTX PRO 6000 Blackwell, PyTorch 2.9.1, DeepSpeed 0.19.2, NCCL 2.27.5. Reproduce: `deepspeed --num_gpus=8 bench_zero.py --stage {0,1,2,3}`. The single-GPU baseline and plotting code accompany the series.*
+
+*All benchmark scripts, schematic generators, plotting code and raw result CSVs for this post live in [assets/blog/code/03-zero](https://github.com/Dominator-Index/Dominator-Index.github.io/tree/main/assets/blog/code/03-zero).*

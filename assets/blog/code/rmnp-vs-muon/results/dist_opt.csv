@@ -1,0 +1,5 @@
+scheme,ms_per_step,bytes_per_step,mib_per_step
+rmnp_local,5.34,0,0.0
+rmnp_colcut,5.33,2903040,2.8
+muon_sc,359.52,1238630400,1181.2
+muon_rr,457.37,2654208000,2531.2

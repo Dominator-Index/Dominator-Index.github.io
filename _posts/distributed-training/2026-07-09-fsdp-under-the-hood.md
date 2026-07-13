@@ -98,3 +98,5 @@ Note the API shift from FSDP1. There is no wrapper class, because `fully_shard` 
 ---
 
 *Environment: 8× RTX PRO 6000 Blackwell, PyTorch 2.9.1, NCCL 2.27.5. Reproduce: `torchrun --standalone --nproc_per_node=8 bench_fsdp.py --mode {ddp,fsdp2} [--no-reshard]`. Plotting and schematic code accompanies the series.*
+
+*All benchmark scripts, schematic generators, plotting code and raw result CSVs for this post live in [assets/blog/code/04-fsdp](https://github.com/Dominator-Index/Dominator-Index.github.io/tree/main/assets/blog/code/04-fsdp).*

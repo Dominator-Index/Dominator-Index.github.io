@@ -120,3 +120,5 @@ DDP solves communication's **time** problem but does nothing for **memory**. Eve
 ---
 
 *Environment: 8× RTX PRO 6000 Blackwell, PyTorch 2.9.1, NCCL 2.27.5. Reproduce: `bench_ddp.py` (single-GPU baseline + bucket sweep + no_sync ablation). Benchmark, plotting and schematic code accompanies the series.*
+
+*All benchmark scripts, schematic generators, plotting code and raw result CSVs for this post live in [assets/blog/code/02-data-parallel-ddp](https://github.com/Dominator-Index/Dominator-Index.github.io/tree/main/assets/blog/code/02-data-parallel-ddp).*

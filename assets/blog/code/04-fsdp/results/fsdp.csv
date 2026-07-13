@@ -1,0 +1,4 @@
+mode,world,resident_GiB,peak_GiB,step_ms,ktok_per_s
+ddp,8,11.76,30.34,477.1,68.7
+fsdp2,8,1.27,12.85,337.9,97.0
+fsdp2-noreshard,8,1.29,14.17,273.2,119.9

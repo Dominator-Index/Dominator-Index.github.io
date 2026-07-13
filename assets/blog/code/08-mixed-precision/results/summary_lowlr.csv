@@ -1,0 +1,4 @@
+scheme,step_ms,peak_mem_gib,final_val_loss
+fp32,36.39,2.514,1.6808
+mixed,10.15,1.555,1.6811
+bf16,8.86,1.271,2.4328

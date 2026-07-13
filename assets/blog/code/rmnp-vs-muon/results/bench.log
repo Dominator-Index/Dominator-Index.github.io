@@ -1,0 +1,26 @@
+W0713 10:19:15.106000 2449084 site-packages/torch/distributed/run.py:803] 
+W0713 10:19:15.106000 2449084 site-packages/torch/distributed/run.py:803] *****************************************
+W0713 10:19:15.106000 2449084 site-packages/torch/distributed/run.py:803] Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
+W0713 10:19:15.106000 2449084 site-packages/torch/distributed/run.py:803] *****************************************
+[W713 10:19:16.104738589 socket.cpp:767] [c10d] The client socket cannot be initialized to connect to [localhost]:44009 (errno: 97 - Address family not supported by protocol).
+[W713 10:19:16.105832272 socket.cpp:767] [c10d] The client socket cannot be initialized to connect to [localhost]:44009 (errno: 97 - Address family not supported by protocol).
+[W713 10:19:16.108613203 socket.cpp:767] [c10d] The client socket cannot be initialized to connect to [localhost]:44009 (errno: 97 - Address family not supported by protocol).
+[W713 10:19:16.159956526 socket.cpp:767] [c10d] The client socket cannot be initialized to connect to [voyager.cs.dartmouth.edu]:36275 (errno: 97 - Address family not supported by protocol).
+[W713 10:19:23.118458185 socket.cpp:767] [c10d] The client socket cannot be initialized to connect to [voyager.cs.dartmouth.edu]:36275 (errno: 97 - Address family not supported by protocol).
+[W713 10:19:23.410647807 socket.cpp:767] [c10d] The client socket cannot be initialized to connect to [voyager.cs.dartmouth.edu]:36275 (errno: 97 - Address family not supported by protocol).
+[W713 10:19:23.622855500 socket.cpp:767] [c10d] The client socket cannot be initialized to connect to [voyager.cs.dartmouth.edu]:36275 (errno: 97 - Address family not supported by protocol).
+[W713 10:19:23.658600674 socket.cpp:767] [c10d] The client socket cannot be initialized to connect to [voyager.cs.dartmouth.edu]:36275 (errno: 97 - Address family not supported by protocol).
+[W713 10:19:23.798751304 socket.cpp:767] [c10d] The client socket cannot be initialized to connect to [voyager.cs.dartmouth.edu]:36275 (errno: 97 - Address family not supported by protocol).
+[W713 10:19:24.963188270 socket.cpp:767] [c10d] The client socket cannot be initialized to connect to [voyager.cs.dartmouth.edu]:36275 (errno: 97 - Address family not supported by protocol).
+[W713 10:19:24.017516619 socket.cpp:767] [c10d] The client socket cannot be initialized to connect to [voyager.cs.dartmouth.edu]:36275 (errno: 97 - Address family not supported by protocol).
+[W713 10:19:24.020775375 socket.cpp:767] [c10d] The client socket cannot be initialized to connect to [voyager.cs.dartmouth.edu]:36275 (errno: 97 - Address family not supported by protocol).
+[exactness] sharded vs full RMNP max |diff| = 0.00e+00
+GPT-2 Large matrix set: 144 matrices, 708M params
+rmnp_local: 5.34 ms/step, comm 0.0 MiB/step/rank
+rmnp_colcut: 5.33 ms/step, comm 2.8 MiB/step/rank
+muon_sc: 359.52 ms/step, comm 1181.2 MiB/step/rank
+muon_rr: 457.37 ms/step, comm 2531.2 MiB/step/rank
+[1024x1024] rmnp 0.024 ms | muon gather+NS 0.486 ms
+[2048x2048] rmnp 0.022 ms | muon gather+NS 1.759 ms
+[4096x4096] rmnp 0.028 ms | muon gather+NS 8.961 ms
+[8192x8192] rmnp 0.052 ms | muon gather+NS 73.251 ms

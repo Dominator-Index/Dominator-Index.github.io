@@ -64,7 +64,40 @@ Each rank computes local partial sums (one scalar per row), concatenates them ac
 
 > Honest boundary, the geometric precondition. RMNP's zero relies on **row-aligned sharding**. FSDP2's per-parameter dim-0 cut satisfies it natively, but FSDP1/ZeRO's FlatParameter splits by *element* and slices rows mid-way, so boundary rows would need cross-rank norm stitching. The requirement is trivially easy to meet, whereas Muon requires "reassemble the whole matrix" under *any* sharding.
 
-## 4. Experiment: putting the bill on the scale, 8 GPUs
+## 4. One matrix, end to end
+
+The ledger above states the O's. This section earns them on one concrete matrix, the MLP up-projection `c_fc` of GPT-2 Large. Its weight is $$W\,[5120 \times 1280]$$, so in bf16 the full matrix weighs $$5120 \cdot 1280 \cdot 2\,\text{B} = 12.5$$ MiB.
+
+**First, who holds what.** A question worth answering explicitly: when $$W$$ is sharded, everything attached to $$W$$ is sharded the same way. Under FSDP2 with 8 GPUs, one rank's slice of this matrix looks like this.
+
+| tensor | shape on this GPU | how it got here |
+|--------|-------------------|-----------------|
+| weight shard | [640 × 1280] | FSDP2's dim-0 cut, 640 whole rows |
+| gradient shard | [640 × 1280] | reduce-scatter at the end of backward lands exactly these rows |
+| momentum $$M_t$$ shard | [640 × 1280] | updated in place from the local gradient shard |
+| fp32 master and Adam moments, if used | [640 × 1280] each | optimizer state always follows the parameter's cut |
+
+The congruence is not optional. A replicated $$M_t$$ would cost as much memory as the replicated $$W$$ you just eliminated, so sharded training only pays off if the state follows the weight. The same holds under TP: a rank that owns a $$[5120 \times 160]$$ column slice of $$W$$ keeps exactly the $$[5120 \times 160]$$ slice of $$M_t$$ and nothing more. Everything below leans on this.
+
+**Now walk one optimizer step, Muon and RMNP side by side**, same numbering for the same phase of the step:
+
+| phase | Muon | RMNP |
+|-------|------|------|
+| ① gradient arrives | reduce-scatter puts a [640×1280] gradient shard on each rank. DP's own cost, identical for both, not counted | same |
+| ② momentum update | local, $$M_k \leftarrow \mu M_k + G_k$$ on the shard, 0 bytes | same, 0 bytes |
+| ③ assemble what the precondition needs | NS needs the full [5120×1280] and nobody has it, so all-gather the momentum: each GPU receives $$\tfrac{N-1}{N} S = \tfrac{7}{8} \times 12.5 \approx 10.9$$ MiB | the row norms need 640 whole rows, which this rank already has, 0 bytes |
+| ④ run the precondition | every rank runs NS on the full matrix, redundantly | every rank normalizes its own 640 rows |
+| ⑤ write back | take your 640 rows of the NS result, update the weight shard locally, 0 bytes | the normalized rows are already local, 0 bytes |
+
+Only phase ③ differs, and that is the whole story. Note that phase ⑤ needs no second collective for either optimizer, because FSDP2 keeps parameters sharded at rest. The next forward pass runs its own per-layer all-gather anyway, which distributes the new weights for free, so a "sync after step" phase simply does not exist.
+
+Two easily confused factors of 2 are worth pinning down. The all-gather above is a single phase, so it costs $$\tfrac{N-1}{N}S$$ per GPU. A true all-reduce is reduce-scatter plus all-gather, two phases, so it costs $$2\tfrac{N-1}{N}S$$ (post #1 derives both). Neither 2 is the "×2 B" in the size of $$S$$, which is just bf16's two bytes per element.
+
+Scaling up is now mechanical. Sum $$\tfrac{7}{8} \cdot mn \cdot 2$$ over all 144 matrices of GPT-2 Large and you get 1181 MiB per GPU per step, which is exactly the number the benchmark below reports for Muon.
+
+**The same matrix under column-cut TP.** Cut the other way, each rank holds $$[5120 \times 160]$$, so every row is broken into 8 segments and no rank can finish a row norm alone. But a squared norm is a sum, and sums decompose. Each rank computes one partial sum per row, giving a $$[5120]$$ fp32 vector that weighs 20 KB. Adding the partial sums across ranks is a genuine all-reduce, two phases, so each GPU pays $$2 \times \tfrac{7}{8} \times 20 \approx 35$$ KB. Compare that with Muon's 10.9 MiB on the same matrix: about 320× less, and independent of $$n$$, because what travels is one scalar per row rather than the row itself.
+
+## 5. Experiment: putting the bill on the scale, 8 GPUs
 
 All 2D matrices of GPT-2 Large (36 layers × 4 each = 144 matrices, 708M params), bf16 momentum, FSDP2-style row sharding across 8 GPUs (the benchmark ships with this post). Four schemes, each running the complete precondition step:
 
@@ -97,17 +130,17 @@ The single-matrix size sweep (panel (b)) adds the final twist. The gap itself gr
 
 > Honest boundary. ① We measure the optimizer precondition segment, not end-to-end training speedup, and its share depends on model and step time (Canzona's 1.57× end-to-end says that on production grids the share is large). ② Our NS is eager bf16, uncompiled, and production kernels are faster. But the 57 ms of communication is bandwidth-priced, and our PCIe topology makes communication expensive. On NVLink the gather is an order of magnitude cheaper, so Muon's pain shifts from "comm + compute" toward "compute + scheduling", while the three structural facts (O(mn), ∝ Ψ, un-overlappable) survive any topology. ③ Under pure DDP (no sharding) both reach zero added communication, so the true watershed is **sharding**, and hyperscale pretraining shards by necessity.
 
-## 5. Why the gap grows with scale
+## 6. Why the gap grows with scale
 
 1. **Traffic scaling.** Muon's optimizer communication ∝ total parameter count Ψ, so a 7B model moves ~14 GB of bf16 momentum per GPU per step, landing on the busiest TP links or cross-node DP links. RMNP's counterpart is $$\Sigma m \approx \Psi/n$$, which is three orders smaller and exactly zero under most layouts.
 2. **Critical-path position.** The optimizer step sits in each step's **serial segment**, after backward finishes and before the next forward starts, where communication has no compute to overlap with. Gradient all-reduce, by contrast, hides inside backward, as series post #2 showed. Canzona's asynchronous pipeline exists to manufacture something to overlap, but RMNP has nothing that needs hiding.
 3. **Parallelism trend.** Collective latency grows with group size, and post #1 measured the latency floor climbing 11→65 µs from 2 to 8 ranks. Muon's gathers get harder to hide, but RMNP's cost does not grow with parallelism at all.
 
-## 6. The convenience is not bought with convergence
+## 7. The convenience is not bought with convergence
 
 All of this matters only if RMNP holds up as an optimizer. The layer-wise Hessians of Transformers are **row-block-diagonally dominant**, so whole-matrix spectral preconditioning can be approximated at the row-block level, and RMNP is exactly Muon's spectral normalization degraded to rows (ICML 2026). HTRMNP recovers part of the discarded spectral correction by scaling with the row norm's $$p$$-th power (default $$p=0.125$$). When Muon's global spectral information genuinely buys more, and how large that gap is (tall matrices, row-curvature heterogeneity), is another post's topic. This one nails a single fact. **On the systems side, row-local vs global is not a difference of degree. It is the difference between "keep your shard" and "reassemble the model, every step."**
 
-## 7. Summary
+## 8. Summary
 
 1. The optimizer's communication bill is the product of two geometries, **the operator's dependency range × the shard's cut**. Muon's NS depends on the whole matrix, so it pays O(mn) plus a scheduling problem under any sharding. RMNP depends on single rows, so it pays 0 under FSDP2/row-TP and an O(m) decomposable reduction under column-TP.
 2. Measured on 8 GPUs over GPT-2 Large's full matrix set, the bill is 5.3 ms vs 359.5 ms (**67×**), decomposed as 303 compute + 57 comm with the comm priced correctly by post #1's bandwidth table. The compute-amortizing round-robin variant is *slower* due to serialization, which is why distributed Muon is worth a paper (Canzona) and distributed RMNP is worth ten lines.
@@ -119,3 +152,5 @@ All of this matters only if RMNP holds up as an optimizer. The layer-wise Hessia
 ---
 
 *Environment: 8× RTX PRO 6000 Blackwell (96GB), pure PCIe (no NVLink), PyTorch 2.9.1 + NCCL 2.27.5. Reproduce: `torchrun --standalone --nproc_per_node=8 bench_dist_opt.py` (four schemes + size sweep + exactness check). Schematic and plotting code accompanies the post.*
+
+*All benchmark scripts, schematic generators, plotting code and raw result CSVs for this post live in [assets/blog/code/rmnp-vs-muon](https://github.com/Dominator-Index/Dominator-Index.github.io/tree/main/assets/blog/code/rmnp-vs-muon).*

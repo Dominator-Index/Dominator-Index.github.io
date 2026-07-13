@@ -1,0 +1,4 @@
+fp32: 20.84 ms, 52.7 TFLOPS
+tf32: 8.24 ms, 133.4 TFLOPS
+bf16: 4.20 ms, 262.0 TFLOPS
+fp16: 5.25 ms, 209.5 TFLOPS
