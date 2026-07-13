@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 470" font-family="'JetBrains Mono','SFMono-Regular',Consolas,monospace">
+<rect width="960" height="470" fill="#0b0f19"/>
+<defs><marker id="ag" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#00c8ff"/></marker><marker id="ar" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#e66767"/></marker></defs>
+<text x="480.0" y="32" font-size="14.5" fill="#d0dce8" text-anchor="middle" font-weight="bold">The ledger: optimizer-added communication per [m&#215;n] matrix, per step, per GPU</text>
+<text x="480.0" y="52" font-size="10" fill="#7a8899" text-anchor="middle" font-weight="normal">gradient sync (DP all-reduce / ZeRO reduce-scatter) is identical for both and excluded</text>
+<text x="68" y="86" font-size="10.5" fill="#7a8899" text-anchor="start" font-weight="normal">layout</text>
+<text x="308" y="86" font-size="10.5" fill="#7a8899" text-anchor="start" font-weight="normal">each GPU holds</text>
+<text x="570.0" y="86" font-size="12" fill="#d0dce8" text-anchor="middle" font-weight="bold">Muon</text>
+<text x="820.0" y="86" font-size="12" fill="#d0dce8" text-anchor="middle" font-weight="bold">RMNP</text>
+<rect x="52" y="96" width="880" height="56" rx="8" fill="#131c2e" stroke="#7a8899" stroke-width="0.8" opacity="0.55"/>
+<text x="68" y="129.0" font-size="11" fill="#d0dce8" text-anchor="start" font-weight="normal">DDP (replicated)</text>
+<text x="308" y="129.0" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">full matrix</text>
+<rect x="516" y="105" width="180" height="38" rx="7" fill="none" stroke="#199e70" stroke-width="1.4" opacity="1.0"/>
+<text x="606.0" y="129.0" font-size="10.5" fill="#199e70" text-anchor="middle" font-weight="bold">0&#8202;*</text>
+<rect x="736" y="105" width="160" height="38" rx="7" fill="none" stroke="#199e70" stroke-width="1.4" opacity="1.0"/>
+<text x="816.0" y="129.0" font-size="10.5" fill="#199e70" text-anchor="middle" font-weight="bold">0</text>
+<rect x="52" y="160" width="880" height="56" rx="8" fill="#131c2e" stroke="#7a8899" stroke-width="0.8" opacity="0.55"/>
+<text x="68" y="193.0" font-size="11" fill="#d0dce8" text-anchor="start" font-weight="normal">FSDP2 / ZeRO-3 (dim-0)</text>
+<text x="308" y="193.0" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">whole-row block</text>
+<rect x="516" y="169" width="180" height="38" rx="7" fill="none" stroke="#e66767" stroke-width="1.4" opacity="1.0"/>
+<text x="606.0" y="193.0" font-size="10.5" fill="#e66767" text-anchor="middle" font-weight="bold">all-gather O(mn)</text>
+<rect x="736" y="169" width="160" height="38" rx="7" fill="none" stroke="#199e70" stroke-width="1.4" opacity="1.0"/>
+<text x="816.0" y="193.0" font-size="10.5" fill="#199e70" text-anchor="middle" font-weight="bold">0</text>
+<rect x="52" y="224" width="880" height="56" rx="8" fill="#131c2e" stroke="#7a8899" stroke-width="0.8" opacity="0.55"/>
+<text x="68" y="257.0" font-size="11" fill="#d0dce8" text-anchor="start" font-weight="normal">TP row-block split</text>
+<text x="308" y="257.0" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">whole-row block</text>
+<rect x="516" y="233" width="180" height="38" rx="7" fill="none" stroke="#e66767" stroke-width="1.4" opacity="1.0"/>
+<text x="606.0" y="257.0" font-size="10.5" fill="#e66767" text-anchor="middle" font-weight="bold">all-gather O(mn)</text>
+<rect x="736" y="233" width="160" height="38" rx="7" fill="none" stroke="#199e70" stroke-width="1.4" opacity="1.0"/>
+<text x="816.0" y="257.0" font-size="10.5" fill="#199e70" text-anchor="middle" font-weight="bold">0</text>
+<rect x="52" y="288" width="880" height="56" rx="8" fill="#131c2e" stroke="#7a8899" stroke-width="0.8" opacity="0.55"/>
+<text x="68" y="321.0" font-size="11" fill="#d0dce8" text-anchor="start" font-weight="normal">TP column split</text>
+<text x="308" y="321.0" font-size="10" fill="#7a8899" text-anchor="start" font-weight="normal">1/tp of every row</text>
+<rect x="516" y="297" width="180" height="38" rx="7" fill="none" stroke="#e66767" stroke-width="1.4" opacity="1.0"/>
+<text x="606.0" y="321.0" font-size="10.5" fill="#e66767" text-anchor="middle" font-weight="bold">all-gather O(mn)</text>
+<rect x="736" y="297" width="160" height="38" rx="7" fill="none" stroke="#c98500" stroke-width="1.4" opacity="1.0"/>
+<text x="816.0" y="321.0" font-size="10.5" fill="#c98500" text-anchor="middle" font-weight="bold">all-reduce O(m) vec</text>
+<text x="60" y="370" font-size="9" fill="#7a8899" text-anchor="start" font-weight="normal">* replicated: NS re-computed on every rank (or amortized Moonlight-style at the price of an O(&#936;) all-reduce)</text>
+<rect x="60" y="386" width="880" height="88" rx="10" fill="rgba(0,200,255,0.05)" stroke="#00c8ff" stroke-width="1.2" opacity="1.0"/>
+<text x="80" y="410" font-size="10.5" fill="#d0dce8" text-anchor="start" font-weight="normal">GPT-2 Large (708M matrix params), 8 GPUs, bf16 momentum, per optimizer step:</text>
+<text x="80" y="432" font-size="11" fill="#e66767" text-anchor="start" font-weight="bold">Muon must move ~1.15 GiB/GPU on the un-overlappable critical path (measured: +57 ms comm, +303 ms redundant NS);</text>
+<text x="80" y="452" font-size="11" fill="#199e70" text-anchor="start" font-weight="bold">RMNP moves 0 (FSDP2/row-TP) or a ~3 MiB vector (column-TP): 5.3 ms total — a 67&#215; gap that grows with scale.</text>
+</svg>
