@@ -2,7 +2,7 @@
 layout: post
 title: "Why A Single GPU Is Never Enough: A Map Of 5D Parallelism"
 date: 2026-07-05 10:00:00
-description: "Why one GPU is never enough, from the 16Ψ memory ledger and the two walls to a map of the five parallelism dimensions this series will visit one by one."
+description: "Why one GPU is not enough: the 16Ψ memory ledger, the memory and time limits, and the five dimensions of parallelism covered in this series."
 tags: distributed-training deep-learning
 categories: distributed-training
 thumbnail: assets/img/blog/distributed/00/fig-2-5d-map.png
@@ -11,13 +11,13 @@ toc:
 related_posts: false
 ---
 
-> A single GPU can neither hold nor finish training a large model, and this post maps out why. It walks the 16Ψ memory ledger, the two walls, and what each of the five parallelism dimensions cuts. The rest of the series takes those dimensions one at a time (DP/DDP, ZeRO, FSDP, TP, SP/CP, PP), with the math derived from scratch, real source code to read along, and experiments run on an 8-GPU machine.
+> A single GPU usually lacks both the memory and the compute needed to train a large model. This post explains those two limits through the 16Ψ memory ledger, then shows what each of the five parallelism dimensions splits. The rest of the series covers DP/DDP, ZeRO, FSDP, TP, SP/CP and PP one by one, with derivations, source-code references and experiments on an 8-GPU machine.
 
 ## 1. The two walls
 
-Training a large model on one GPU runs into two walls, in this order.
+Training a large model on one GPU runs into two limits: memory and time.
 
-**The memory wall.** During training, every parameter must live in memory in several bodies at once. Let $$\Psi$$ denote the *number* of parameters (a plain count, so $$\Psi = 7\times 10^9$$ for a 7B model). Under mixed precision with Adam, the ledger reads:
+**The memory limit.** During training, each parameter is stored in several forms at the same time. Let $\Psi$ denote the *number* of parameters, so $\Psi = 7\times 10^9$ for a 7B model. With mixed precision and Adam, the memory ledger is:
 
 {% include figure.liquid loading="eager" path="assets/img/blog/distributed/00/fig-1-memory-ledger.svg" class="img-fluid rounded" zoomable=true %}
 
@@ -25,45 +25,45 @@ $$
 \underbrace{2\Psi}_{\text{bf16 params}} + \underbrace{2\Psi}_{\text{bf16 grads}} + \underbrace{4\Psi}_{\text{fp32 master params}} + \underbrace{4\Psi + 4\Psi}_{\text{Adam } m,\ v} = \boxed{16\Psi \text{ bytes}}
 $$
 
-The mnemonic is that **training a model ≈ storing 8 copies of it**, and three quarters of the bill is the fp32 optimizer state. Why parameters can be bf16 while the optimizer must stay fp32 is post #8, and this 12Ψ of "redundancy" is exactly what ZeRO, post #3, will shard away. For a 7B model the checkpoint is 14 GB, but the training state is **112 GB**, which does not fit in our 96 GB cards. And that is before activations, which grow with batch size × sequence length and are a separate ledger entirely.
+A useful rule of thumb is that **training a model requires about eight times the memory needed to store its bf16 parameters**. Three quarters of that total comes from fp32 master parameters and Adam states. Post #8 explains why model parameters can use bf16 while optimizer states remain in fp32, and post #3 shows how ZeRO shards this 12Ψ of replicated state. A 7B model needs 14 GB for its bf16 parameters but **112 GB** for the full training state, which already exceeds our 96 GB GPUs. Activations require additional memory that grows with batch size and sequence length.
 
-**The time wall.** Even if it fit, total training compute is roughly $$6\Psi D$$ FLOPs ($$D$$ = training tokens, with 2 for the forward pass and 4 for the backward). A 7B model on 1T tokens is $$4.2\times 10^{22}$$ FLOPs, which is over six years on one GPU at a realistic ~200 TFLOPS.
+**The time limit.** Even if the model fits in memory, training requires roughly $6\Psi D$ FLOPs, where $D$ is the number of training tokens. The forward pass accounts for about $2\Psi D$ FLOPs and the backward pass for about $4\Psi D$. Training a 7B model on 1T tokens therefore requires $4.2\times 10^{22}$ FLOPs, or more than six years on one GPU at a realistic throughput of about 200 TFLOPS.
 
-So we must use many GPUs. And every multi-GPU scheme ever devised is an answer to the same question:
+We therefore need multiple GPUs. Every multi-GPU training method must answer three questions:
 
-> **What do we cut, which group of GPUs do the shards live on, and which collective operation glues them back together?**
+> **What is split, which GPUs hold the resulting shards, and which collective operation combines them when needed?**
 
 ## 2. Five dimensions, one map
 
 {% include figure.liquid loading="eager" path="assets/img/blog/distributed/00/fig-2-5d-map.svg" class="img-fluid rounded" zoomable=true %}
 
-| Dimension | Cuts | Attacks which wall | The "glue" | Post |
+| Dimension | What it splits | Main limit addressed | Communication | Post |
 |-----------|------|--------------------|------------|------|
-| **DP** — data parallelism | the batch (model replicated) | time (throughput) | all-reduce on gradients | #2 |
-| **TP** — tensor parallelism | each weight matrix, row/col-wise | memory (one layer too big) | all-reduce on activations | #5 |
-| **PP** — pipeline parallelism | the layer stack, into stages | memory (too many layers) | p2p send/recv | #7 |
-| **CP** — context parallelism | the sequence dimension | activation memory (long context) | ring KV exchange | #6 |
-| **EP** — expert parallelism | MoE experts | MoE parameter count | all-to-all | (season 2) |
+| **DP** (data parallelism) | the batch (model replicated) | time (throughput) | all-reduce on gradients | #2 |
+| **TP** (tensor parallelism) | each weight matrix, row/col-wise | memory (one layer too big) | all-reduce on activations | #5 |
+| **PP** (pipeline parallelism) | the layer stack, into stages | memory (too many layers) | p2p send/recv | #7 |
+| **CP** (context parallelism) | the sequence dimension | activation memory (long context) | ring KV exchange | #6 |
+| **EP** (expert parallelism) | MoE experts | MoE parameter count | all-to-all | (season 2) |
 
-Three players that don't occupy an independent dimension but matter just as much:
+Three related techniques do not define separate parallelism dimensions, but they are equally important:
 
-- **ZeRO / FSDP** (posts #3, #4) is an upgrade of DP. The model still computes as a full replica, but the redundant entries of the 16Ψ ledger (optimizer state, gradients, parameters) are sharded across the DP group. It cuts **storage**, not computation.
+- **ZeRO / FSDP** (posts #3 and #4) extend DP by sharding optimizer states, gradients and parameters across the DP group. Each layer still computes as a full replica, so these methods reduce **storage**, not computation.
 - **SP**, sequence parallelism (post #6), is a companion to TP that shards the activations TP cannot reach (LayerNorm, dropout) along the sequence dimension.
-- **Mixed precision** (post #8) covers the very rules that make the ledger above read bf16/fp32 in the first place.
+- **Mixed precision** (post #8) explains why the ledger above uses both bf16 and fp32.
 
-Real large-scale training is a **product** of these dimensions. The GPUs form a multi-dimensional grid `ep × pp × dp × cp × tp`, and every GPU belongs to five communication groups at once. The composition is not arbitrary, because one iron rule decides the layout: **the more often a dimension communicates, the faster the interconnect it must sit on.**
+Large-scale training combines several of these dimensions. GPUs form a multidimensional grid, `ep × pp × dp × cp × tp`, and each GPU belongs to one communication group along every active dimension. The layout follows a practical rule: **dimensions that communicate more often should use faster interconnects.**
 
 $$
 \underbrace{\text{tp}}_{\text{every layer}} \;>\; \text{cp} \approx \text{zero-3} \;>\; \text{dp} \;>\; \underbrace{\text{pp}}_{\text{only at stage boundaries}}
 \quad\Longrightarrow\quad
-\text{tp stays inside a node; pp/dp go across nodes.}
+\text{tp stays inside a node, while pp/dp go across nodes.}
 $$
 
 ## 3. The common substrate: six collective primitives
 
-Look at the "glue" column of the map once more. **Every dimension's glue is drawn from the same small set of collective communication primitives**: broadcast, scatter, gather, all-gather, reduce-scatter, all-reduce. They are the accounting unit of this whole series. DDP's cost is one all-reduce, ZeRO's is a reduce-scatter plus an all-gather, and FSDP's prefetch is a pipelined all-gather. Until you know what one all-reduce costs in bytes and microseconds, no claim of the form "X saves communication over Y" can be checked.
+Every entry in the table's communication column uses the same six collective primitives: broadcast, scatter, gather, all-gather, reduce-scatter and all-reduce. These primitives provide a common unit for comparing methods throughout the series. DDP uses all-reduce for gradient synchronization, ZeRO uses reduce-scatter followed by all-gather, and FSDP prefetches parameters with pipelined all-gathers. To verify that one method communicates less than another, we first need to know the byte and time cost of each primitive.
 
-That is why the series opens with the primitives (post #1): what each one means, the $$2\frac{N-1}{N}S$$ derivation for ring all-reduce, and their measured bandwidth and latency on our 8-GPU machine. There you will see that the theoretical formula is not an approximation but a change of coordinates on the measured curves.
+Post #1 therefore begins with these primitives. It defines each operation, derives the $2\frac{N-1}{N}S$ communication volume of ring all-reduce, and measures bandwidth and latency on our 8-GPU machine. Normalizing the measurements by the derived traffic factors explains why different collectives produce different raw bandwidth curves.
 
 ## 4. Series roadmap
 
@@ -75,9 +75,9 @@ That is why the series opens with the primitives (post #1): what each one means,
 6. **Sequence & context parallelism**: two ways to cut the sequence
 7. **Pipeline parallelism**: the geometry of bubbles
 8. **Mixed precision**: the numerics ledger of the bf16 era
-9. **Optimizers in a sharded world**: why row-local operators are natively distributed-friendly
+9. **Optimizers in a sharded world**: why row-local operators work well with distributed sharding
 
-All experiments run on one machine: 8× RTX PRO 6000 Blackwell (96 GB), pure PCIe with no NVLink, PyTorch 2.9.1 + NCCL 2.27.5. The missing NVLink is a feature, not a bug, because on a "commoner topology" the communication bottlenecks are exposed with unusual clarity.
+All experiments run on one machine with 8× RTX PRO 6000 Blackwell GPUs (96 GB), PCIe without NVLink, PyTorch 2.9.1 and NCCL 2.27.5. Because the machine has no NVLink, communication bottlenecks are easier to observe.
 
 ---
 

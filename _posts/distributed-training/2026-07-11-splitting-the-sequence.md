@@ -2,7 +2,7 @@
 layout: post
 title: "Splitting The Sequence: Megatron-SP And Ring Attention"
 date: 2026-07-11 10:00:00
-description: "Megatron-SP patches TP's activation leak with the AR = AG + RS identity in its third appearance, Ring Attention attacks O(s²) long context, and a hand-written ring attention verified exact produces a scaling result that inverts post #5's."
+description: "How sequence parallelism removes the activations replicated by tensor parallelism, how Ring Attention distributes long contexts, and why context parallelism scales on the same PCIe machine where TP does not."
 tags: distributed-training deep-learning
 categories: distributed-training
 thumbnail: assets/img/blog/distributed/06/fig-2-ring-attention.png
@@ -11,26 +11,26 @@ toc:
 related_posts: false
 ---
 
-> The two schemes that cut along the sequence dimension solve two different problems. Megatron-SP patches TP's activation leak, using the AR = AG + RS identity for the third time in this series, while Ring Attention (CP) attacks long context's $$O(s^2)$$. A hand-written ring attention comes out exactly equivalent to full softmax, and on the very PCIe box where TP flatlined, it actually scales.
+> Sequence parallelism (SP) and context parallelism (CP) both divide the sequence dimension, but they solve different problems. SP removes the LayerNorm and dropout activations left replicated by tensor parallelism. CP distributes the $O(s^2)$ work and memory of long-context attention. A hand-written Ring Attention implementation matches full softmax up to rounding and scales on the same PCIe machine where TP does not.
 
-## 1. The activation leak TP leaves behind
+## 1. Activations that TP leaves replicated
 
-Post #5's TP cut the weights and compute of attention/MLP, but look at its boundaries. $$f$$'s forward **replicates** $$X$$, and $$g$$'s forward all-reduces out a **complete** $$Z$$, so **at the entry and exit of every TP region, activations are full $$[b,s,h]$$, replicated $$N$$ times.** The LayerNorm and dropout sandwiched between TP regions operate on those replicated activations. Their *compute* is negligible, but their **activation memory** is not reduced by one byte, because LN's input must be kept for backward and so must dropout's mask.
+Post #5 showed how TP divides the weights and computation of attention and MLP layers. At TP-region boundaries, however, the forward operation of $f$ replicates $X$ and the forward operation of $g$ all-reduces a complete $Z$. Each rank therefore stores full $[b,s,h]$ activations at the entry and exit of every TP region. LayerNorm and dropout operate between these regions. Their compute cost is small, but their inputs and masks must be retained for backward, so TP does not reduce this activation memory.
 
-Sequence parallelism (SP, Megatron-LM 2022) observes that **LN and dropout are completely independent across tokens**. LN normalizes each token's $$h$$-vector, and dropout is element-wise. Because they are token-independent, we can cut along the sequence and let each rank process its own segment, and the math is unchanged.
+Sequence parallelism (SP, Megatron-LM 2022) uses the fact that **LayerNorm and dropout are independent across tokens**. LayerNorm normalizes each token's $h$-dimensional vector, and dropout is element-wise. The sequence can therefore be divided across ranks without changing either operation.
 
-## 2. Megatron-SP: split the all-reduce in SPACE
+## 2. Megatron-SP: replacing all-reduce with all-gather and reduce-scatter
 
-What remains is stitching the two layouts together, because TP regions want the full $$s$$ while SP regions hold $$s/N$$. The answer is the same identity from post #1, **all-reduce = all-gather + reduce-scatter**:
+TP regions use the full sequence, while SP regions store only $s/N$ tokens per rank. Converting between these layouts uses the identity from post #1: **all-reduce consists of reduce-scatter and all-gather**.
 
 {% include figure.liquid loading="eager" path="assets/img/blog/distributed/06/fig-1-megatron-sp.svg" class="img-fluid rounded" zoomable=true %}
 
-- Plain TP: LN (full $$s$$, replicated) → **g: all-reduce** → TP region → **g: all-reduce** → LN (full $$s$$, replicated).
-- TP + SP: LN (**$$s/N$$, sharded**) → **ḡ: all-gather** (assemble the sequence, enter the TP region) → TP region (unchanged) → **g̅: reduce-scatter** (sum the partial results and re-split by sequence) → LN (**$$s/N$$, sharded**).
+- **Plain TP:** LayerNorm stores the full replicated sequence → $g$ performs all-reduce around each TP region → the next LayerNorm again receives the full replicated sequence.
+- **TP + SP:** LayerNorm stores $s/N$ tokens per rank → all-gather assembles the sequence before the TP region → reduce-scatter sums the TP outputs and repartitions them by sequence → the next LayerNorm again stores only $s/N$ tokens.
 
-Reconcile the bill. One all-reduce costs $$2\frac{N-1}{N}S$$ per GPU, and replacing it with AG ($$\frac{N-1}{N}S$$) + RS ($$\frac{N-1}{N}S$$) moves **not one extra byte**. Meanwhile LN/dropout activations shrink from $$[b,s,h]$$ to $$[b,\frac{s}{N},h]$$, so the last replicated activations inside the TP domain vanish.
+The communication volume is unchanged. All-reduce sends $2\frac{N-1}{N}S$ bytes per GPU, while all-gather and reduce-scatter each send $\frac{N-1}{N}S$. At the same time, LayerNorm and dropout activations shrink from $[b,s,h]$ to $[b,\frac{s}{N},h]$ on each rank.
 
-This is the identity's third appearance, each time split differently. It has become one of this series' own through-lines, worth laying side by side:
+The same decomposition has appeared in three different settings:
 
 | | How the AR is split | What it buys |
 |---|---|---|
@@ -38,17 +38,17 @@ This is the identity's third appearance, each time split differently. It has bec
 | **FSDP** (post #4) | in time, inverted: AG moved into forward, RS into backward | resident params /N |
 | **Megatron-SP** (this post) | in **space**: AG at the TP region's entry, RS at its exit | LN/dropout activations /N |
 
-> A detail that shows why the split is *necessary*. Couldn't we just recompute LN instead of storing its input? Sure, but that's activation checkpointing, which pays compute for memory. SP is **free**, with the same communication, the same compute, and memory /N. The only engineering cost is that LN's $$\gamma/\beta$$ gradients need a cross-rank sum, an all-reduce of one $$[h]$$ vector, which is latency-floor territory from post #1 and costs ≈ 0.
+> Recomputing LayerNorm during backward would also save its stored input, but that is activation checkpointing and trades additional compute for memory. SP instead keeps the main communication and compute volumes unchanged while dividing these activations by $N$. LayerNorm's $\gamma$ and $\beta$ gradients require an additional all-reduce of one $[h]$ vector. This message is small and therefore latency-bound, as described in post #1.
 
-## 3. CP: when the sequence itself is the enemy
+## 3. Context parallelism for long sequences
 
-SP trims what TP left behind. Context parallelism (CP) faces a different magnitude of problem, **$$s$$ so large that one GPU can't even hold a single layer's activations** ($$[b,s,h]$$ at 128K tokens, and attention's $$O(s^2)$$). So cut the *entire network* along the sequence. Each rank owns $$1/N$$ of the tokens, and **LN, MLP, and the QKV projections are all token-local**, so they compute as usual with zero communication. In the whole Transformer, **the only place tokens interact is attention's $$QK^\top$$**. CP's entire problem compresses into one question. *My $$Q$$ is here and the other K/V segments are on other GPUs, so how do we compute?*
+SP removes activations replicated by TP. Context parallelism (CP) addresses sequences so long that one GPU cannot hold a layer's activations or attention matrix. At 128K tokens, even the $[b,s,h]$ activations can be too large, while the attention matrix grows as $O(s^2)$. CP divides the entire network along the sequence, so each rank owns $1/N$ of the tokens. LayerNorm, MLP and QKV projections operate independently on each token and remain local. Cross-token interaction occurs in attention through $QK^\top$. The remaining problem is to combine local queries with K/V blocks stored on other ranks.
 
-Ring Attention's answer is that **Q stays home while KV makes the round trip.**
+Ring Attention keeps each query block local and circulates the K/V blocks around the ranks.
 
 {% include figure.liquid loading="eager" path="assets/img/blog/distributed/06/fig-2-ring-attention.svg" class="img-fluid rounded" zoomable=true %}
 
-Each rank keeps its $$Q_k$$, while K/V blocks hop to the next rank each step, and N−1 hops complete the ring. On each arriving KV block, an **online softmax** absorbs it into running statistics $$(O, m, l)$$:
+Rank $k$ keeps $Q_k$. At each of the next $N-1$ steps, it receives a new K/V block from its neighbor. An **online softmax** incorporates each block into running output, maximum and normalization statistics $(O,m,l)$:
 
 $$
 m_j = \max(m_{j-1},\ \mathrm{rowmax}(S_j)),\quad
@@ -56,9 +56,9 @@ l_j = l_{j-1}e^{m_{j-1}-m_j} + \textstyle\sum e^{S_j - m_j},\quad
 O_j = O_{j-1}e^{m_{j-1}-m_j} + e^{S_j-m_j}V_j
 $$
 
-Then $$O/l$$ is the **exact** softmax attention. Old statistics get rescaled as new maxima arrive, so this is an algebraic identity, not an approximation. It is the very trick behind FlashAttention's tiling, and CP simply places the tiles on different GPUs. Each hop moves $$2\cdot\frac{s}{N}\cdot h$$ bytes, and the next block's transfer can overlap the current block's compute.
+After every block is processed, $O/l$ equals full softmax attention up to floating-point ordering. When a larger maximum appears, the previous statistics are rescaled before the new block is added. FlashAttention uses the same algebra within one GPU. Ring Attention distributes the blocks across GPUs. Each hop moves $2\cdot\frac{s}{N}\cdot h$ elements for K and V, and communication of the next block can overlap computation on the current block.
 
-## 4. Experiment: exactness, and "same machine, TP flatlines, CP scales"
+## 4. Experiment: numerical equivalence and CP scaling
 
 Hand-written ring attention (core = one `blockwise_update` + one `batch_isend_irecv` ring, ~30 lines, ships with the post), $$s = 8192$$, 8 heads, non-causal, against single-GPU full softmax:
 
@@ -70,31 +70,31 @@ Hand-written ring attention (core = one `blockwise_update` + one `batch_isend_ir
 
 {% include figure.liquid loading="eager" path="assets/img/blog/distributed/06/fig-3-cp-scaling.svg" class="img-fluid rounded" zoomable=true %}
 
-Two readings:
+The measurements show two results:
 
-1. **Exactness**. The error is pinned at 4e-7 (fp32 rounding order), independent of $$N$$, because online softmax is an identity, not an approximation.
-2. **The counterpoint to post #5**. On this same NVLink-less machine, TP=8 spent 86% of its time communicating and its total never moved, but CP=8 cuts the total from 8.3 ms to 3.4 ms (2.4×). The reason is scaling. **Attention's compute is $$O(s^2/N)$$, which is quadratic, while the KV ring moves only $$O(s/N)$$.** The longer the sequence, the more lopsided the compute/communication ratio and the closer CP gets to linear scaling. Same model, different cut, opposite communication fate, which is why **a parallelism scheme's scalability is its compute-to-communication *scaling ratio*, not what it cuts.**
+1. **Numerical equivalence:** the maximum difference remains near 4e-7 for every $N$. It comes from fp32 operation order rather than an algorithmic approximation.
+2. **CP scales where TP did not:** on the same machine without NVLink, TP=8 spent 86% of its time communicating and did not reduce total time. CP=8 reduces attention time from 8.3 to 3.4 ms, a 2.4× speedup. The difference comes from asymptotic scaling. Attention compute is $O(s^2/N)$, while each rank's KV communication is $O(s/N)$. As sequence length grows, computation grows faster than communication, making the communication easier to amortize. Scalability therefore depends on how compute and communication scale relative to each other.
 
-> Honest boundary: the toy is non-causal. Under a causal mask, naive contiguous chunks load-imbalance badly, because the rank holding the sequence tail attends to almost all KV while the head attends to almost none. Production implementations (Megatron CP, zigzag ring) pair head and tail segments to rebalance. And our ring is serial, whereas production overlaps hops with compute, hiding the communication almost entirely. Both corrections only make CP scale *better*.
+> **Boundary of the experiment.** This implementation is non-causal. With a causal mask and contiguous chunks, later chunks attend to more K/V positions than earlier chunks and create load imbalance. Production systems such as Megatron CP and zigzag ring attention pair early and late segments to balance the work. Our implementation also executes ring transfers serially, while production systems overlap communication with attention computation.
 
 ## 5. Reading along in real source
 
-**Megatron-SP**: the SP conjugate pair lives in `megatron/core/tensor_parallel/mappings.py` as `gather_from_sequence_parallel_region` / `reduce_scatter_to_sequence_parallel_region`. Read it side by side with post #5's $$f/g$$ and the identity-splitting is plain to see.
+**Megatron-SP:** `megatron/core/tensor_parallel/mappings.py` implements the SP pair as `gather_from_sequence_parallel_region` and `reduce_scatter_to_sequence_parallel_region`. These functions are the sequence-sharded counterparts of the $f/g$ operators in post #5.
 
-**nanotron**: `TensorParallelLinearMode.REDUCE_SCATTER` in `src/nanotron/parallel/tensor_parallel/nn.py`. SP is not a separate module but a *communication-mode switch on the TP linear layer*, a design that itself says "SP = TP's communication, rearranged".
+**nanotron:** `TensorParallelLinearMode.REDUCE_SCATTER` is defined in `src/nanotron/parallel/tensor_parallel/nn.py`. SP is implemented as a communication mode of the TP linear layer rather than as a separate module.
 
 **Ring Attention** comes from Liu et al. 2023. Production versions live in Megatron's `context_parallel` (p2p ring or all-gather comm types) and in flash-attn with zigzag sharding.
 
-**Our toy** is §3's three formulas transcribed. Read it line-against-line with the math.
+**Our implementation** directly follows the three online-softmax equations in Section 3.
 
 ## 6. Summary
 
-1. SP and CP both cut the sequence but for different reasons. **SP patches TP's activation leak** (replicated LN/dropout activations), while **CP attacks long context** by cutting the whole net by token so that only attention communicates.
-2. Megatron-SP is the AR = AG + RS identity split in **space**, its third appearance after ZeRO in time and FSDP in time-inverted. It costs zero extra communication and cuts LN/dropout activations by a factor of N.
-3. In ring attention, Q stays, KV rings, and the online softmax stays **exact**. Tokens only interact in attention, so everything else is free.
-4. Measured on the same PCIe box, TP flatlines while CP speeds up 2.4×. **Scalability is decided by the compute/communication scaling ratio** ($$O(s^2/N)$$ vs $$O(s/N)$$), a deeper criterion than what gets cut.
+1. SP and CP both divide the sequence dimension but solve different problems. **SP shards LayerNorm and dropout activations left replicated by TP**, while **CP distributes long-context computation and memory** across tokens.
+2. Megatron-SP replaces each relevant all-reduce with an all-gather at the TP-region entrance and a reduce-scatter at the exit. The communication volume is unchanged, while LayerNorm and dropout activation memory is divided by $N$.
+3. In Ring Attention, query blocks remain local while K/V blocks circulate. Online softmax produces the same result as full attention up to floating-point ordering. Other token-local layers need no communication.
+4. On the same PCIe machine, TP does not reduce total time, while CP achieves a 2.4× speedup. The difference follows from their compute-to-communication scaling: $O(s^2/N)$ compute versus $O(s/N)$ communication for CP.
 
-**Next comes pipeline parallelism and the geometry of bubbles.** DP/TP/SP/CP all have every GPU doing the *same kind* of work, but PP is the first to give different GPUs *different layers*, and with that comes parallel training's most famous disease, the bubble. GPipe vs 1F1B schedules, and the $$(p-1)/m$$ bubble fraction derived and measured.
+**Next comes pipeline parallelism and the geometry of pipeline bubbles.** DP, TP, SP and CP assign the same type of work to every GPU. Pipeline parallelism instead assigns different layers to different stages. The next post compares GPipe and 1F1B schedules and derives and measures their bubble fraction.
 
 ---
 

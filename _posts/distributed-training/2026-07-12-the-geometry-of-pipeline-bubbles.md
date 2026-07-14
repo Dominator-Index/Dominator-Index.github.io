@@ -2,7 +2,7 @@
 layout: post
 title: "The Geometry Of Pipeline Bubbles"
 date: 2026-07-12 10:00:00
-description: "The (p−1)/(m+p−1) bubble derived by counting grid cells, 1F1B's same-bubble-1/m-memory rearrangement, and a 60-line hand-written GPipe that nails the formula at m=1 and then hits the wall the formula doesn't mention."
+description: "A derivation of the (p−1)/(m+p−1) pipeline-bubble fraction, how 1F1B reduces activation memory without changing that fraction, and measurements showing the per-microbatch costs omitted by the formula."
 tags: distributed-training deep-learning
 categories: distributed-training
 thumbnail: assets/img/blog/distributed/07/fig-1-schedules.png
@@ -11,46 +11,46 @@ toc:
 related_posts: false
 ---
 
-> The pipeline bubble is decided by schedule geometry. That geometry says where $$(p-1)/(m+p-1)$$ comes from, how 1F1B improves on it, and where it fails when measured. A hand-written GPipe (~60 lines) on 4 GPUs reproduces the formula to 0.9% at $$m{=}1$$, and then runs into another wall the formula never wrote down.
+> Pipeline bubbles come from dependencies between stages and microbatches. This post derives the fraction $(p-1)/(m+p-1)$, explains how 1F1B reduces activation memory without changing the bubble, and identifies the costs that the formula omits. A roughly 60-line GPipe implementation on 4 GPUs matches the formula within 0.9% at $m{=}1$.
 
-## 1. PP is the first parallelism with division of labor
+## 1. Pipeline stages perform different parts of the model
 
-Every dimension so far, DP/TP/SP/CP, has all GPUs doing the **same kind** of work (same layers, different data or slices). Pipeline parallelism (PP) is the first to give different GPUs **different layers**. The model is cut by depth into $$p$$ stages, and activations cross stage boundaries via p2p send/recv.
+In DP, TP, SP and CP, every GPU performs the same type of operation on different data or tensor slices. Pipeline parallelism (PP) instead assigns **different layers** to different GPUs. The model is divided by depth into $p$ stages, and point-to-point sends and receives transfer activations and gradients across stage boundaries.
 
-Its communication is the cheapest in the whole series. Per boundary, per microbatch, it sends one $$[b_{mb} \times h]$$ activation forward and its gradient backward, which is **point-to-point, not collective, independent of parameter count**. That is why post #0's iron rule puts pp on the outermost, cross-node axis. It is the least sensitive to slow interconnects.
+PP has relatively low communication volume. At each boundary and for each microbatch, it sends one $[b_{mb} \times h]$ activation forward and the corresponding gradient backward. These transfers are **point-to-point rather than collective and do not scale with parameter count**. PP is therefore less sensitive to interconnect bandwidth than TP and is often placed across nodes.
 
-But cheap communication buys a new disease. **Division of labor creates waiting.** Stage 1 has nothing to do until stage 0 finishes, and in backward, stage 0 waits for everyone. That structural idling is the bubble.
+The trade-off is idle time between dependent stages. Stage 1 cannot begin a microbatch until stage 0 produces its activations, and stage 0 cannot begin its backward work until gradients return from later stages. This unavoidable idle region is the pipeline bubble.
 
 ## 2. Bubble geometry: a derivation by counting grid cells
 
-Discretize time into slots (one slot = one microbatch through one stage). Split the batch into $$m$$ microbatches, and GPipe runs all forwards, then all backwards:
+Divide time into slots, where one slot represents one microbatch running through one stage. GPipe splits a batch into $m$ microbatches, executes all forward passes, and then executes all backward passes:
 
 {% include figure.liquid loading="eager" path="assets/img/blog/distributed/07/fig-1-schedules.svg" class="img-fluid rounded" zoomable=true %}
 
-Count cells in panel (b) at $$p{=}4, m{=}4$$. The first microbatch takes $$p$$ slots to fill the pipe, then one drains per slot, so the forward phase spans $$m+p-1$$, and backward is symmetric. Each stage does $$2m$$ slots of real work in a $$2(m+p-1)$$-slot span:
+In panel (b), with $p{=}4$ and $m{=}4$, the first microbatch needs $p$ slots to reach the final stage. Each later slot completes one additional microbatch, so forward spans $m+p-1$ slots. Backward has the same length. Each stage performs $2m$ working slots during a total span of $2(m+p-1)$ slots:
 
 $$
 \boxed{\ \text{bubble fraction} \;=\; \frac{2(m+p-1) - 2m}{2(m+p-1)} \;=\; \frac{p-1}{m+p-1}\ }
 $$
 
-Three immediate corollaries:
+The formula gives three direct conclusions:
 
-1. **$$m{=}1$$ is naive model parallelism** (panel (a)), with bubble $$(p-1)/p$$, so 75% waste on 4 GPUs and 87.5% on 8. Cut the model without cutting the batch, and you bought $$p$$ GPUs to run one at a time.
-2. **Only $$m$$ amortizes the bubble**, since $$m = 4p$$ → ≈19% and $$m = 8p$$ → ≈10%. This is why PP is naturally married to gradient accumulation (post #2), because gas *is* a ready-made $$m$$.
-3. **The bubble is speed-independent**, because it is the *shape* of the schedule, not the quality of the implementation. Faster kernels and faster links change nothing. Only a different schedule does.
+1. **$m{=}1$ reduces to naive model parallelism** in panel (a). The bubble fraction is $(p-1)/p$, which means 75% idle time on 4 stages and 87.5% on 8 stages.
+2. **Increasing $m$ amortizes pipeline fill and drain.** Setting $m=4p$ gives a bubble near 19%, while $m=8p$ gives about 10%. Gradient accumulation already divides an optimizer step into multiple microbatches, so it naturally supplies the required $m$ (post #2).
+3. **The idealized bubble fraction depends on schedule shape rather than kernel or link speed.** Faster operations shorten every slot but do not change the fraction of empty slots. Changing that fraction requires a different schedule.
 
-## 3. 1F1B: same bubble, $$1/m$$ the memory
+## 3. 1F1B: the same bubble with lower activation memory
 
-GPipe hides a bill. All $$m$$ microbatches' activations must survive until their backward, which means **activation memory O(m)**, right after §2 told us to make $$m$$ large. 1F1B (one-forward-one-backward, PipeDream-Flush) rearranges the schedule. After a warm-up of $$p-s$$ forwards, each stage alternates one forward with one available backward (panel (c), slot positions derived from the dependency constraints, checkable):
+GPipe retains activations for all $m$ microbatches until backward begins, so activation memory is **O(m)**. This conflicts with the need for a large $m$. 1F1B, or one-forward-one-backward in PipeDream-Flush, changes the order of operations. After a warm-up of $p-s$ forward passes for stage $s$, each stage alternates between one forward and one ready backward operation, as shown in panel (c):
 
-- **The total span is identical to GPipe**, so the bubble formula is unchanged. Count the grey cells in (b) and (c) and they come out equal.
-- But at most $$p$$ microbatches are in flight at any moment, which means **activation memory O(p), independent of m**. Now $$m$$ can grow safely.
+- **The total schedule length is the same as GPipe**, so the bubble fraction is unchanged. Panels (b) and (c) contain the same number of idle cells.
+- At most $p$ microbatches are active at once, so **activation memory is O(p) rather than O(m)**. Increasing $m$ no longer increases the number of stored activation sets.
 
-> The wider map never leaves this grid. Interleaved 1F1B (each GPU owns several non-adjacent stage chunks, Megatron's virtual pipeline stages) divides the bubble by the chunk count. Zero-bubble schedules (ZB-H1) split backward into input-grad and weight-grad halves to fill the holes, approaching zero bubble in theory. DualPipe (DeepSeek-V3) runs the pipe bidirectionally. All of them are finer Tetris on the same grid.
+> More advanced schedules modify the same dependency grid. Interleaved 1F1B assigns multiple non-adjacent model chunks to each GPU and reduces the bubble by the number of virtual stages. Zero-bubble schedules such as ZB-H1 separate input-gradient and weight-gradient computation to fill idle slots. DualPipe, used by DeepSeek-V3, runs pipelines in both directions.
 
-## 4. Experiment: a 60-line GPipe puts the formula on the scale
+## 4. Experiment: measuring GPipe across microbatch counts
 
-The hand-written GPipe (ships with the post) runs 4 stages × 6 Linear+GeLU layers at width 4096, total batch fixed at 8192 rows, $$m$$ swept 1→32. `isend/recv` connects the stages and backward returns `ins[i].grad` upstream, a direct transcription of §2's grid.
+The included GPipe implementation uses 4 stages, each with 6 Linear+GeLU layers of width 4096. The total batch remains fixed at 8192 rows while $m$ varies from 1 to 32. `isend/recv` connects adjacent stages, and backward sends `ins[i].grad` to the previous stage.
 
 {% include figure.liquid loading="eager" path="assets/img/blog/distributed/07/fig-2-bubble-measured.svg" class="img-fluid rounded" zoomable=true %}
 
@@ -60,32 +60,32 @@ The hand-written GPipe (ships with the post) runs 4 stages × 6 Linear+GeLU laye
 | bubble, theory | 75% | 60% | 43% | 27% | 16% | 9% |
 | idle, measured | 75.9% | 71% | 53% | 53% | 54% | 61% |
 
-Three readings:
+The measurements show three effects:
 
-1. **At $$m{=}1$$ the formula is exact** (75.9% vs 75%, off by 0.9%), so "naive model parallelism wastes $$(p-1)/p$$" is not rhetoric but a measurable fact.
-2. **As $$m$$ grows, measurement departs from theory and floors at ~53%**, then bounces back. What the formula never wrote down shows up. Every microbatch pays a p2p hop latency and kernel-launch overhead, and, subtler, **GEMM efficiency itself decays**. Shrinking the microbatch from 8192 to 256 rows leaves total FLOPs unchanged but drops GPU execution efficiency by ~35% ($$m \cdot t_{\text{slot}}$$ climbs from 21.9 ms to 33.6 ms). The finer you slice, the less efficient each slice.
-3. So we get a third U-curve for this series, after DDP's bucket size and FSDP's reshard knob. **The bubble wants $$m$$ large, per-slice efficiency wants $$m$$ small, and the optimum sits between** (here $$m{=}8$$). Production systems take both ends. They raise $$m$$ *and* switch to interleaved/zero-bubble schedules to shrink the bubble's coefficient, rather than slicing microbatches ever finer.
+1. **At $m{=}1$, measured idle time is 75.9% compared with the theoretical 75%.** The difference is 0.9 percentage points.
+2. **As $m$ grows, measured idle time stops improving near 53% and then increases.** The geometric formula assumes fixed-cost slots, but every microbatch adds point-to-point latency and kernel-launch overhead. Smaller matrix multiplications are also less efficient. Reducing each microbatch from 8192 to 256 rows keeps total FLOPs constant but raises $m \cdot t_{\text{slot}}$ from 21.9 to 33.6 ms, a roughly 35% loss in execution efficiency.
+3. **Bubble reduction favors a large $m$, while per-microbatch efficiency favors a smaller $m$.** Their balance produces the best result at $m{=}8$ in this experiment. Production systems increase $m$ while also using interleaved or zero-bubble schedules, rather than relying only on ever smaller microbatches.
 
-> Honest boundary: our toy is pure GPipe with equal slots and no comm/compute overlap. Production PP overlaps send/recv with compute, backward is ≈2× forward, and stages are rarely perfectly balanced (embedding/lm_head imbalance is a real tuning pain). All of that moves the U-curve's bottom, but none of it dissolves the tension between bubble geometry and per-slice overhead.
+> **Boundary of the experiment.** The implementation uses GPipe with equal slot times and no overlap between communication and computation. Production systems overlap sends and receives with compute, backward often takes about twice as long as forward, and stages may be imbalanced, especially around embeddings and the language-model head. These factors change the optimal $m$ but not the trade-off between pipeline bubbles and per-microbatch overhead.
 
 ## 5. Reading along in real source
 
-**PyTorch** ships `ScheduleGPipe` / `Schedule1F1B` in `torch.distributed.pipelining`, the schedule as code, cell-for-cell against panels (b)/(c).
+**PyTorch** provides `ScheduleGPipe` and `Schedule1F1B` in `torch.distributed.pipelining`. Their operation order corresponds directly to panels (b) and (c).
 
 **nanotron**: `AllForwardAllBackwardPipelineEngine` (= GPipe) and `OneForwardOneBackwardPipelineEngine` (= 1F1B) in `src/nanotron/parallel/pipeline_parallel/engine.py`, with p2p in `p2p.py`.
 
 **Megatron-LM** keeps the schedules in `megatron/core/pipeline_parallel/schedules.py`, including interleaved 1F1B.
 
-**DeepSpeed** compiles schedules into instruction streams (`LoadMicroBatch / ForwardPass / SendActivation / ...`) in `deepspeed/runtime/pipe/schedule.py`, and it is well worth a read.
+**DeepSpeed** compiles schedules into instruction streams such as `LoadMicroBatch`, `ForwardPass` and `SendActivation` in `deepspeed/runtime/pipe/schedule.py`.
 
 ## 6. Summary
 
-1. PP buys the cheapest communication (p2p boundary activations, parameter-independent) at the price of a structural disease. The bubble fraction $$\frac{p-1}{m+p-1}$$ is pure geometry, independent of implementation.
-2. $$m{=}1$$ is naive model parallelism with $$(p-1)/p$$ waste, verified to 0.9%. The only free amortizer is $$m$$, which is why PP is naturally married to gradient accumulation.
-3. 1F1B keeps the same bubble while taking activation memory from O(m) to O(p). It is the textbook case of rearranging a schedule to change peak resources without changing the makespan.
-4. The measurement adds the other half. Per-microbatch overheads (hop latency + launches + small-GEMM inefficiency) give $$m$$ an optimum, so the bubble formula is a necessary map, not the full terrain.
+1. PP communicates point-to-point boundary activations rather than parameter-sized collectives, but stage dependencies create idle time. Under equal slot times, the bubble fraction is $\frac{p-1}{m+p-1}$.
+2. With $m{=}1$, the idle fraction is $(p-1)/p$. The experiment matches this value within 0.9 percentage points. Increasing the number of microbatches amortizes pipeline fill and drain, which makes gradient accumulation a natural fit for PP.
+3. 1F1B keeps the same idealized bubble fraction while reducing activation memory from O(m) to O(p). It changes peak memory without changing the schedule length.
+4. Point-to-point latency, kernel launches and small-GEMM inefficiency create an optimal finite $m$. The geometric bubble formula captures dependency idle time but not these per-microbatch costs.
 
-**Next comes mixed precision, the numerics ledger of the bf16 era.** Every post so far quietly used bf16/fp32 mixing rules (FSDP's `MixedPrecisionPolicy`, ZeRO's fp32 masters, fp32 NCCL reductions) without ever justifying them. Why may parameters be bf16 while the optimizer must stay fp32, and why does fp16 need loss scaling while bf16 doesn't? One post pays off every precision IOU in the 16Ψ ledger.
+**Next comes mixed precision and the numerical role of bf16 and fp32.** Earlier posts used FSDP's `MixedPrecisionPolicy`, fp32 master parameters in ZeRO and fp32 gradient reductions without explaining their numerical purpose. The next post explains why computation can use bf16 while optimizer state remains fp32, and why fp16 requires loss scaling while bf16 usually does not.
 
 ---
 

@@ -2,7 +2,7 @@
 layout: post
 title: "From DP To DDP: Buckets, Overlap, And A 25 MB Sweet Spot"
 date: 2026-07-07 10:00:00
-description: "DP's exactness invariant, and how DDP hides the gradient all-reduce inside the backward pass through bucketing against the latency floor and overlap against the bandwidth bill, with a full bucket_cap_mb sweep on 8 GPUs."
+description: "Why data parallelism is mathematically equivalent to large-batch training, and how DDP reduces communication overhead through gradient bucketing and overlap, measured with a full bucket_cap_mb sweep on 8 GPUs."
 tags: distributed-training deep-learning
 categories: distributed-training
 thumbnail: assets/img/blog/distributed/02/fig-2-bucket-overlap.png
@@ -11,11 +11,11 @@ toc:
 related_posts: false
 ---
 
-> Data parallelism never approximates anything, and DDP buries its communication bill inside the backward pass. [Post #1](/blog/2026/distributed-training-illustrated-1-collective-communication/) priced one all-reduce, so this post watches PyTorch DDP pay that price and haggle it down, with nanoGPT-124M on 8 GPUs and a full `bucket_cap_mb` sweep.
+> Data parallelism computes the same averaged gradient as large-batch training. Its main cost is gradient synchronization. [Post #1](/blog/2026/the-price-of-all-reduce/) derived the cost of one all-reduce. This post shows how PyTorch DDP reduces its visible overhead through bucketing and overlap. We measure nanoGPT-124M on 8 GPUs across a full `bucket_cap_mb` sweep.
 
 ## 1. The invariant: DP never approximates anything
 
-Data parallelism (DP) is the most intuitive parallelism: replicate the model $$N$$ times, split the batch $$N$$ ways, let each GPU run forward/backward independently, then **average the gradients with one all-reduce** and apply identical updates.
+Data parallelism (DP) replicates the model on $N$ GPUs and splits the batch across them. Each GPU runs its own forward and backward passes, after which an all-reduce **averages the gradients** so that every replica applies the same update.
 
 {% include figure.liquid loading="eager" path="assets/img/blog/distributed/02/fig-1-dp-one-step.svg" class="img-fluid rounded" zoomable=true %}
 
@@ -26,35 +26,35 @@ $$
 \;=\; \frac{1}{N}\sum_{k=0}^{N-1}\underbrace{\frac{1}{|\mathcal{B}_k|}\sum_{x\in\mathcal{B}_k} \nabla \ell(x;\theta)}_{\text{local gradient } g_k \text{ on rank } k}
 $$
 
-**The all-reduced average equals, bit for bit, the gradient one giant GPU would compute on the full batch.** So DP's semantic invariant is that replicas start from the same $$\theta_0$$, receive the same averaged gradient every step, apply the same update, **and stay bit-identical forever**. DP approximates nothing. It merely spreads out a big-batch computation. All that remains is an engineering question: *when and how to run that all-reduce so it doesn't block the pipeline.*
+**In exact arithmetic, the all-reduced average equals the gradient computed on the full batch.** All replicas start from the same $\theta_0$, receive the same averaged gradient, and apply the same update at every step. They therefore remain synchronized. DP does not change the optimization problem. It distributes a large-batch computation. The engineering challenge is to schedule the all-reduce without making the rest of the step wait.
 
-Let's also pre-compute the bill with the formula from post #1. With gradient bytes $$S$$, each GPU pays $$2\frac{N-1}{N}S$$ per step. Our experimental model, nanoGPT-124M, keeps fp32 gradients, so $$S = 4\Psi \approx 498$$ MB. At the all-reduce algorithm bandwidth we measured last time (8 GPUs, ~10.1 GB/s), **one bare, un-hidden all-reduce ≈ 49 ms**. Remember that number, because §4 will reconcile against it.
+We can estimate this cost using the formula from post #1. If the gradients occupy $S$ bytes, each GPU sends $2\frac{N-1}{N}S$ bytes per step. nanoGPT-124M uses fp32 gradients, so $S = 4\Psi \approx 498$ MB. At the all-reduce algorithm bandwidth measured on 8 GPUs, about 10.1 GB/s, an all-reduce with no overlap should take approximately **49 ms**. Section 4 compares this estimate with the measured overhead.
 
-## 2. Two ways naive DP dies, two tricks that save DDP
+## 2. Why naive DP is slow, and how DDP fixes it
 
-The naive implementation (loop over parameters after `backward()`, `all_reduce` each `.grad`) dies of two ailments, both foreshadowed in post #1:
+A naive implementation calls `all_reduce` on every `.grad` after `backward()`. This creates two bottlenecks:
 
-1. **The latency floor**: GPT-2 has ~150 parameter tensors, mostly KBs to a few MBs. Per-tensor all-reduce hits the ~65 µs floor ($$N{=}8$$) every time, for ~10 ms of pure latency.
-2. **Serial exposure**: waiting for the whole backward before communicating leaves the entire 49 ms naked on the critical path.
+1. **Repeated latency:** GPT-2 has roughly 150 parameter tensors, ranging from a few kilobytes to a few megabytes. Reducing each tensor separately pays the ~65 µs latency floor at $N{=}8$ about 150 times, adding roughly 10 ms.
+2. **No overlap:** if communication starts only after backward finishes, the full 49 ms all-reduce remains on the critical path.
 
-`torch.nn.parallel.DistributedDataParallel` answers with two tricks, one figure:
+`torch.nn.parallel.DistributedDataParallel` (DDP) addresses both problems:
 
 {% include figure.liquid loading="eager" path="assets/img/blog/distributed/02/fig-2-bucket-overlap.svg" class="img-fluid rounded" zoomable=true %}
 
-- **Bucketing**: parameters are grouped (in reverse order of arrival during backward) into buckets of `bucket_cap_mb`, and one bucket = one all-reduce. "150 small collectives" becomes "~20 large ones", so the latency cost divides by 7.
-- **Overlap**: backward naturally computes gradients **last layer first**, so later layers' gradients are ready early. DDP registers an autograd hook per parameter, and the instant a bucket's gradients are all ready, its all-reduce launches asynchronously on a **separate NCCL stream**, running concurrently with the still-ongoing backward of earlier layers. Ideally, by the time backward finishes, most communication is already done or in flight, and only the last bucket's tail is exposed.
+- **Bucketing:** DDP groups gradients into `bucket_cap_mb`-sized buckets, ordered roughly by when they become ready during backward. It performs one all-reduce per bucket, turning about 150 small collectives into roughly 20 larger ones and reducing repeated latency.
+- **Overlap:** backward produces gradients from the last layer toward the first, so some gradients become ready before backward completes. DDP registers an autograd hook for each parameter. As soon as every gradient in a bucket is ready, DDP launches its all-reduce asynchronously on a **separate NCCL stream**. Communication for later layers can then run while earlier layers are still computing. Ideally, only the final communication tail remains after backward.
 
-The trade-off is drawn in the figure too. **Too small a bucket falls back onto the per-collective latency floor, and too big a bucket leaves nothing to overlap with.** The sweet spot must be measured, which is what §4 does.
+Bucket size controls a trade-off. **Small buckets launch early but pay more collective latency. Large buckets reduce latency but become ready too late to overlap effectively.** Section 4 measures the best balance.
 
 ## 3. Reading along in real source
 
-**Bucket assignment** happens in `_compute_bucket_assignment_by_size` in `torch.distributed`. The first bucket defaults to 1 MB, deliberately tiny so the last layer's gradients depart as early as possible. The rest default to `bucket_cap_mb` = 25 MB.
+**Bucket assignment** is implemented by `_compute_bucket_assignment_by_size` in `torch.distributed`. The first bucket defaults to 1 MB so that the earliest gradients can be reduced quickly. Later buckets use the default `bucket_cap_mb` value of 25 MB.
 
 **Hooks and async reduction** live in `torch/csrc/distributed/c10d/reducer.cpp`: `Reducer::autograd_hook` → `mark_variable_ready` → bucket full → `all_reduce_bucket` on the comm stream.
 
 **`gradient_as_bucket_view=True`** makes `.grad` a view into bucket memory, saving one copy and one gradient's worth of memory.
 
-**`no_sync()`** lives in `torch/nn/parallel/distributed.py` and disables the hooks' communication for the first gas−1 microbatches of gradient accumulation (§5).
+**`no_sync()`** is implemented in `torch/nn/parallel/distributed.py`. During gradient accumulation, it disables communication for the first gas−1 microbatches (Section 5).
 
 Our benchmark is the standard usage, and the whole script ships with the post:
 
@@ -75,17 +75,17 @@ opt.step(); opt.zero_grad(set_to_none=True)
 
 {% include figure.liquid loading="eager" path="assets/img/blog/distributed/02/fig-3-bucket-sweep.svg" class="img-fluid rounded" zoomable=true %}
 
-Three readings:
+The sweep shows three results:
 
-1. **The U-curve** predicted in §2: 1 MB (too many buckets, latency) 152.7 ms → **25 MB optimal, 147.1 ms** (exactly PyTorch's default, which was not picked out of a hat) → 500 MB (whole model in one bucket) 172.0 ms.
-2. **Reconciliation**: the single-bucket run (zero overlap) costs 49.8 ms over the single-GPU floor, matching the "bare all-reduce ≈ 49 ms" priced in §1 from post #1's bandwidth measurements to 2%. **Two posts, two independent experiments, one number**.
-3. **Overlap's net gain**: best bucket (147.1 ms) vs zero overlap (172.0 ms) = 24.9 ms saved, which is **exactly half of the 49.8 ms bill hidden**. On this PCIe box, where communication is expensive relative to compute (49.8/122.2 ≈ 41%), hiding half is a solid result. On NVLink machines the bill itself is smaller and hides more completely.
+1. **Step time follows the U-shaped curve predicted in Section 2.** A 1 MB bucket takes 152.7 ms because it launches too many collectives. The **25 MB setting is best at 147.1 ms**, matching PyTorch's default. A 500 MB bucket delays communication until almost the entire model is ready and takes 172.0 ms.
+2. **The single-bucket result matches the cost estimate.** With almost no overlap, it adds 49.8 ms over the single-GPU baseline. Section 1 predicted approximately 49 ms from post #1's independent bandwidth measurements, a difference of 2%.
+3. **Overlap saves 24.9 ms.** The best bucket takes 147.1 ms, compared with 172.0 ms for the single bucket, so DDP hides about half of the 49.8 ms communication cost. Communication is expensive on this PCIe machine, at about 41% of the 122.2 ms compute baseline. NVLink systems have a smaller communication cost and can usually hide a larger fraction of it.
 
-Scaling efficiency: $$\frac{668.2}{8 \times 100.6} = 83\%$$. The missing 17% is precisely the ~25 ms of exposed communication.
+The resulting scaling efficiency is $\frac{668.2}{8 \times 100.6} = 83\%$. The remaining 17% gap corresponds to roughly 25 ms of exposed communication.
 
-## 5. Experiment 2: gradient accumulation and `no_sync` to pay fewer bills
+## 5. Experiment 2: reducing communication with gradient accumulation and `no_sync`
 
-Gradient accumulation (gas microbatches per optimizer step) is mathematically a free batch-size multiplier:
+Gradient accumulation combines gas microbatches into one optimizer step without changing the averaged gradient:
 
 $$
 g \;=\; \frac{1}{\text{gas}}\sum_{m=1}^{\text{gas}} g^{(m)}
@@ -93,29 +93,29 @@ g \;=\; \frac{1}{\text{gas}}\sum_{m=1}^{\text{gas}} g^{(m)}
 \text{backward } \tfrac{\ell^{(m)}}{\text{gas}} \text{ per microbatch, accumulate into .grad}
 $$
 
-Summation commutes with all-reduce, so **accumulating locally and synchronizing once** gives the identical result as synchronizing every microbatch but pays 1 bill instead of gas. DDP's hooks fire on every `backward()`, so the redundant syncs must be turned off explicitly with `no_sync()`:
+Because summation commutes with all-reduce, **accumulating locally and synchronizing once** produces the same result as synchronizing after every microbatch. It requires one collective instead of gas collectives. DDP normally launches communication on every `backward()`, so `no_sync()` must explicitly disable the redundant synchronizations:
 
 {% include figure.liquid loading="eager" path="assets/img/blog/distributed/02/fig-4-throughput.svg" class="img-fluid rounded" zoomable=true %}
 
-- gas=4 without `no_sync`: 674.8 ktok/s, since three of the four syncs are pure waste.
-- gas=4 with `no_sync`: **754.1 ktok/s (94% scaling efficiency)**, 521.5 ms/step. The 61.3 ms saved ≈ 3 × 20 ms (the three skipped, already-partially-overlapped all-reduces).
-- Intuition: `no_sync` amortizes the bill over 4× the tokens, dropping the comm/compute ratio from 41% to ~10%. Larger gas approaches the ideal line, which is one reason large-model training always ships with gradient accumulation.
+- With gas=4 but without `no_sync`, throughput is 674.8 ktok/s because three of the four synchronizations are unnecessary.
+- With gas=4 and `no_sync`, throughput rises to **754.1 ktok/s with 94% scaling efficiency**, at 521.5 ms per step. The 61.3 ms reduction is approximately $3 \times 20$ ms, consistent with skipping three partially overlapped all-reduces.
+- `no_sync` spreads one synchronization cost across four times as many tokens, reducing the communication-to-compute ratio from 41% to about 10%. Larger accumulation factors move throughput closer to the ideal scaling line, which is one reason gradient accumulation is common in large-model training.
 
-> Honest boundary: each skipped sync saves ~20 ms, not the full 25 ms of exposed time, because the skipped all-reduces were themselves partially hidden by overlap. And under `no_sync`, `.grad` must accumulate locally, which claws back some of `gradient_as_bucket_view`'s memory savings.
+> **Boundary of the result.** Each skipped synchronization saves about 20 ms rather than the full 25 ms of exposed communication because the all-reduces were already partially overlapped. In addition, `no_sync` requires local accumulation in `.grad`, which reduces some of the memory savings from `gradient_as_bucket_view`.
 
-## 6. DP's ceiling: it saves not one byte of memory
+## 6. DP does not reduce model-state memory
 
-DDP solves communication's **time** problem but does nothing for **memory**. Every GPU still carries the full 16Ψ ledger from [post #0](/blog/2026/distributed-training-illustrated-0-the-5d-map/): parameters, gradients, fp32 master weights, Adam state, all of it. Across 8 GPUs, the same optimizer state is stored 8 times.
+DDP reduces the visible **time** spent on communication but does not reduce model-state **memory**. Every GPU still stores the full 16Ψ ledger from [post #0](/blog/2026/why-a-single-gpu-is-never-enough/): parameters, gradients, fp32 master parameters and Adam states. With 8 GPUs, the same optimizer state is stored eight times.
 
-**Next: Data Parallelism, part 2, ZeRO's three-stage ledger.** Recall from post #1 that all-reduce = reduce-scatter + all-gather. ZeRO splits it open in the middle. After the reduce-scatter, each rank holds the complete sum of 1/N of the gradients, so let rank $$k$$ **update and store only** shard $$k$$ of the optimizer state and then all-gather the fresh parameters. Communication volume is nearly unchanged, but memory divides by $$N$$. We will measure per-GPU memory across stages 1/2/3.
+**Next: Data Parallelism, part 2, ZeRO's three-stage ledger.** Post #1 showed that all-reduce consists of reduce-scatter followed by all-gather. After reduce-scatter, rank $k$ owns the complete reduced gradient for shard $k$. ZeRO lets that rank **store and update only** the matching optimizer-state shard, then all-gathers the updated parameters. Communication remains nearly unchanged while model-state memory is divided by $N$. The next post measures per-GPU memory across ZeRO stages 1, 2 and 3.
 
 ## 7. Summary
 
-1. DP's invariant is that the averaged gradient equals the big-batch gradient bit-for-bit, so replicas stay identical. Correctness is free, and the only question is where to put the communication.
-2. DDP has two tricks. **Bucketing** fights the latency floor (150 small collectives → ~20 large), and **overlap** hides communication inside backward (autograd hooks + a separate NCCL stream).
-3. Measured, bucket size is a U-curve with the 25 MB default sitting at the bottom. The single-bucket run's +49.8 ms reconciles with post #1's bandwidth data to 2%, and the best bucket hides half the bill for 83% scaling efficiency.
-4. Gradient accumulation demands `no_sync`. The bill then amortizes by gas, giving 94% efficiency.
-5. DP/DDP saves zero memory (16Ψ × N redundancy), and that is ZeRO's stage.
+1. In exact arithmetic, DP's averaged gradient equals the full-batch gradient, so all replicas remain synchronized. The main systems question is how to schedule communication.
+2. DDP uses two techniques. **Bucketing** turns about 150 small collectives into roughly 20 larger ones, and **overlap** launches ready buckets during backward on a separate NCCL stream.
+3. Bucket size produces a U-shaped performance curve, with the 25 MB default at the minimum. The single-bucket overhead of 49.8 ms matches post #1's bandwidth estimate within 2%, and the best setting hides half of that cost for 83% scaling efficiency.
+4. Gradient accumulation should use `no_sync` so that one synchronization is shared across gas microbatches. With gas=4, scaling efficiency reaches 94%.
+5. DP and DDP do not shard model state, so every rank still stores the 16Ψ ledger. ZeRO addresses this remaining redundancy.
 
 ---
 

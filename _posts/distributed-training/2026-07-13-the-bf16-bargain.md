@@ -2,7 +2,7 @@
 layout: post
 title: "The bf16 Bargain: A Numerics Ledger For Mixed Precision"
 date: 2026-07-13 09:00:00
-description: "Why parameters may be bf16 while the optimizer must stay fp32, and why fp16 needs loss scaling while bf16 doesn't, with a twist where naive all-bf16 training refuses to fail at toy scale and even generalizes better, until a per-parameter audit shows 87% of late-training updates being swallowed and a small-LR run makes the disease visible."
+description: "Why mixed-precision training uses bf16 for computation and fp32 for persistent state, why fp16 needs loss scaling, and how a small-learning-rate experiment exposes updates lost without an fp32 master copy."
 tags: distributed-training deep-learning
 categories: distributed-training
 thumbnail: assets/img/blog/distributed/08/fig-1-float-formats.png
@@ -11,64 +11,64 @@ toc:
 related_posts: false
 ---
 
-> Traffic runs in low precision and state stays in high precision. That is why parameters may be bf16, why the optimizer must be fp32, and why fp16 needs loss scaling while bf16 doesn't. The experiment has a twist. At toy scale, naive all-bf16 training refuses to break and even generalizes *better*, yet a per-parameter audit shows 87% of late-training updates being swallowed whole, and once the learning rate drops to late-large-model levels, the model without an fp32 master simply stops moving.
+> Mixed-precision training uses low precision for frequently processed tensors and high precision for persistent state. This explains why computation can use bf16, why optimizer states remain fp32, and why fp16 often needs loss scaling. In a small experiment, all-bf16 training appears to work and even obtains lower validation loss, but an update audit shows that 87% of late-training parameter updates would round to zero. At a smaller learning rate, training without an fp32 master copy stalls.
 
-## 1. The IOUs this series has accumulated
+## 1. Precision choices left unexplained
 
-Every previous post quietly used mixed precision without ever justifying it:
+Earlier posts used mixed precision in several places without explaining the numerical reasons:
 
-- Post #0's memory ledger charges parameters at 2 bytes but optimizer state at 12. **Why do parameters get away with 2 bytes while optimizer state needs 12?**
-- Post #3's ZeRO constant $$K=12$$ hides "fp32 master params + fp32 $$m$$ + fp32 $$v$$". **What is a master copy, and why store the parameters twice?**
+- Post #0 counts 2 bytes per parameter but 12 bytes per parameter for master parameters and Adam states. **Why can computation use 2-byte values while optimizer state uses 4-byte values?**
+- Post #3 uses $K=12$ for fp32 master parameters and the fp32 Adam states $m$ and $v$. **Why is a second parameter copy necessary?**
 - Post #4's FSDP used `MixedPrecisionPolicy(param_dtype=bf16, reduce_dtype=fp32)`. **Why does the reduction get its own dtype?**
 
-This post pays off every IOU. The whole design fits in one sentence:
+One principle connects these choices:
 
-> **A single multiplication may be sloppy, but a long accumulation must be exact.**
+> **Individual multiplications can use lower precision, but long accumulations and persistent updates need higher precision.**
 
 ## 2. Precision and range are different things
 
-A float = sign bit + exponent bits + mantissa bits. Exponent bits decide **range** (how large/small a value can be), and mantissa bits decide **precision** (how many digits survive). The same 16 bits, split two ways, give two very different temperaments:
+A floating-point format contains a sign, an exponent and a mantissa. Exponent bits determine **range**, while mantissa bits determine **precision**. fp16 and bf16 divide their 16 bits differently:
 
 {% include figure.liquid loading="eager" path="assets/img/blog/distributed/08/fig-1-float-formats.svg" class="img-fluid rounded" zoomable=true %}
 
-- **fp16** (5 exponent + 10 mantissa): slightly better precision (~3.3 decimal digits) but a dangerously narrow range, with max 65504 and min normal 6.1e-5. Backward passes produce gradients that naturally run small (measured in §4, 57% below 6.1e-5), and untreated they underflow toward zero. The V100-era fix is **loss scaling**. Multiply the loss by a large constant $$S$$, let the chain rule lift every gradient by $$S$$ into representable territory, and divide back before the update, with $$S$$ retuned dynamically on every inf/nan.
-- **bf16** (8 exponent + 7 mantissa): the same exponent width as fp32, which means an **identical range**. Nothing under- or overflows that fp32 wouldn't, so the entire loss-scaling machinery is deleted. The price is ~2.4 decimal digits. bf16 is literally fp32 with the low 16 mantissa bits cut off, so casting up just pads zeros (**lossless**), while casting down rounds to nearest (**lossy**, and every trap in this post lives in that one direction).
+- **fp16** has 5 exponent bits and 10 mantissa bits. It provides about 3.3 decimal digits of precision but a limited range, with a maximum of 65504 and a minimum normal value of 6.1e-5. Small gradients can enter the subnormal range or underflow to zero. In Section 4, 57% of measured gradients fall below 6.1e-5. **Loss scaling** multiplies the loss by a factor $S$ so that gradients remain representable, then divides them by $S$ before the optimizer update. Dynamic scaling adjusts $S$ when infinities or NaNs appear.
+- **bf16** has 8 exponent bits and 7 mantissa bits. It has the same exponent range as fp32, so values that are representable in fp32 do not underflow merely because they are cast to bf16. Loss scaling is therefore usually unnecessary. The trade-off is about 2.4 decimal digits of precision. Casting bf16 to fp32 only appends zeros and is exact. Casting fp32 to bf16 rounds away low mantissa bits.
 
-After Ampere, fp16 training essentially died out, and "mixed precision" now means bf16 by default. So who repays the 2.4-digit hole? Not the storage format but **the places where addition happens**.
+On recent hardware, bf16 is often preferred to fp16 when its wider range is more useful. Its lower precision is managed by performing sensitive additions and accumulations in fp32.
 
 ## 3. The precision map of one training step
 
-Unroll a single step and every tensor's dtype has a reason:
+The dtype of each tensor follows its role in one training step:
 
 {% include figure.liquid loading="eager" path="assets/img/blog/distributed/08/fig-2-mixed-precision-loop.svg" class="img-fluid rounded" zoomable=true %}
 
-The left side is **flow**, meaning activations and in-flight gradients. That is per-token data, huge in volume, consumed immediately, all bf16. The right side is **state**, meaning master parameters, Adam moments, and gradient-accumulation buffers. Those are ledgers built from millions of tiny additions, all fp32. The two sides meet at exactly two cast points. After backward, bf16 gradients are **losslessly upcast** into the fp32 buffer, and after the step, fp32 master params are **rounded down** into a fresh bf16 compute copy.
+The left side of the figure contains **flow tensors**: activations and temporary gradients. Their volume scales with tokens, they are consumed quickly, and they can use bf16. The right side contains persistent **state**: master parameters, Adam moments and gradient-accumulation buffers. These values receive many small updates and remain in fp32. After backward, bf16 gradients are upcast exactly into fp32 buffers. After the optimizer step, fp32 master parameters are rounded to create the next bf16 compute copy.
 
-Three fp32 defense lines, each better hidden than the last:
+Three mechanisms preserve fp32 accuracy where it matters:
 
-**Line 1: the Tensor Core's fp32 accumulator (hardware).** A "bf16 × bf16" matmul instruction does not add products in bf16. They enter an **fp32 accumulator**, the thousands of additions in one row-times-column all happen in fp32, and only the writeback rounds to bf16. It must work this way because an $$h=4096$$ inner product sums 4096 terms, and if you accumulate in bf16, big eats small. Once the running sum reaches 100, adding 0.01 does nothing. Here is an extreme you can verify on a CPU. **Sum 4096 copies of 0.01 term by term, and fp32 gives 40.96 while bf16 gives 4.0.** That is off by 10×, and not by gradual drift. Once the sum hits 4.0, every further 0.01 is less than half a ulp and is rounded away entirely, so the sum is stuck forever.
+**Line 1: fp32 accumulation in Tensor Cores.** A bf16 matrix multiplication forms bf16 products but accumulates them in fp32 before rounding the output. This matters because an inner product with $h=4096$ adds 4096 terms. In bf16, a small term can round away once the running sum becomes much larger. For example, adding 4096 copies of 0.01 sequentially gives 40.96 in fp32 but only 4.0 in bf16. After the bf16 sum reaches 4.0, an additional 0.01 is below half an ulp and no longer changes the result.
 
-**Line 2: fp32 gradient accumulation (software).** Gradient accumulation (post #2's gas) is another "many small numbers being summed" crime scene. nanotron simply wrote an `FP32GradientAccumulator` (`src/nanotron/optim/gradient_accumulator.py`), where each micro-batch's bf16 gradient is upcast and added into a persistent fp32 buffer the moment it exists. This is also the gap between the ledger's $$16\Psi$$ and $$18\Psi$$ variants. Store gradients in bf16 and you save $$2\Psi$$ and halve all-reduce traffic but accumulate in bf16, or store them in fp32 and pay $$2\Psi$$ more for the numerically safest option. FSDP's `reduce_dtype=fp32` is the compromise, bf16 in memory and fp32 on the wire.
+**Line 2: fp32 gradient accumulation in software.** Gradient accumulation also adds many small values. nanotron's `FP32GradientAccumulator` in `src/nanotron/optim/gradient_accumulator.py` upcasts each microbatch's bf16 gradient and adds it to a persistent fp32 buffer. This choice explains the difference between the 16Ψ and 18Ψ memory ledgers. Keeping gradients in bf16 saves 2Ψ bytes and reduces communication, while fp32 buffers use 2Ψ additional bytes and preserve small accumulated values. FSDP can keep parameter storage in lower precision while setting `reduce_dtype=fp32` for reduction.
 
-**Line 3: the fp32 master copy (this post's protagonist).** The parameter update $$w \leftarrow w + \Delta$$ is also an addition, and it is the most asymmetric one of all. Mid-to-late training, $$|\Delta|$$ is typically $$10^{-3}$$ to $$10^{-5}$$ of $$|w|$$. bf16 has 7 mantissa bits, and rounding kills everything below half a ulp:
+**Line 3: the fp32 master copy.** The update $w \leftarrow w + \Delta$ adds a small change to a much larger stored value. In middle and late training, $|\Delta|$ may be only $10^{-3}$ to $10^{-5}$ of $|w|$. With 7 explicit mantissa bits, bf16 rounds sufficiently small updates back to the original value:
 
 $$
 \boxed{\ |\Delta| \;<\; |w|\cdot 2^{-9} \;\approx\; \frac{|w|}{512} \quad\Longrightarrow\quad \mathrm{bf16}(w + \Delta) = \mathrm{bf16}(w)\ }
 $$
 
-Updates smaller than $$|w|/512$$ don't get smaller. They become **exactly zero**. We measured it. Start at $$w=1.0$$ and add $$10^{-4}$$ a thousand times, and fp32 reaches 1.1 while **bf16 is still exactly 1.0**. Hence the rule that updates always land on the fp32 master, whose 23 mantissa bits absorb updates down to $$|w|\cdot 2^{-24}$$ and let consecutive small updates accumulate until they surface in the projected bf16 copy, while the bf16 copy is regenerated from the master every step and is never updated in place.
+When an update falls below this threshold, storing the result in bf16 can leave the parameter unchanged. Starting from $w=1.0$ and adding $10^{-4}$ one thousand times produces 1.1 in fp32, while the bf16 value remains 1.0 when each update is rounded independently. Applying updates to an fp32 master parameter allows small changes to accumulate. fp32 has 23 explicit mantissa bits and can preserve updates down to roughly $|w|\cdot 2^{-24}$. A new bf16 compute copy is then generated from the master after every step rather than updated in place.
 
 ### 3.1 If fp32 is stored anyway, why not compute in it?
 
-The reverse question is natural. The master is already fp32, so why not run forward/backward on it and save the $$2\Psi$$ copy? The economics don't work. The fp32 master is touched **once** per step by an element-wise update, which is bandwidth-bound and takes milliseconds, but the bf16 copy runs **every matmul in forward and backward**, ~99% of the step's FLOPs. Measured on one RTX PRO 6000 for the same $$8192^3$$ GEMM (fig. 4, left), **fp32 gets 52.7 TFLOPS while bf16 gets 262 TFLOPS, a 5.0× gap** (tf32 133.4, fp16 209.5). The trade is to spend $$2\Psi$$ of storage and make 99% of the compute 5× faster, and on top of that halve activation memory and every byte of communication. The fp32 master is deliberately excluded from the hot path, appearing only in the one addition that needs its precision.
+The fp32 master already exists, so one might use it directly for forward and backward and avoid the 2Ψ bf16 copy. That would make the dominant matrix multiplications much slower. The master parameter is touched once per step by an element-wise update, while the bf16 copy participates in almost every forward and backward matrix multiplication. For an $8192^3$ GEMM on one RTX PRO 6000, fp32 reaches 52.7 TFLOPS and bf16 reaches 262 TFLOPS, a 5.0× difference. TF32 reaches 133.4 TFLOPS and fp16 reaches 209.5 TFLOPS. The additional 2Ψ storage therefore keeps the small update in fp32 while running most computation, activation storage and communication in bf16.
 
-## 4. Experiment: three schemes to the finish line, then count the swallowed updates
+## 4. Experiment: three precision schemes and an update audit
 
-A char-level GPT (6 layers, width 384, ~10M params, model definition ships with the post, SDPA attention so all three dtypes run), tiny-shakespeare, one GPU, 6000 steps, cosine LR 1e-3 → 1e-4. All three schemes consume **the same batch sequence from the same init seed**, and only the precision recipe changes:
+We train a character-level GPT with 6 layers, width 384 and about 10M parameters on Tiny Shakespeare for 6000 steps on one GPU. The learning rate follows a cosine schedule from 1e-3 to 1e-4. All three schemes use **the same initialization and batch sequence**. Only their precision policy changes:
 
 | scheme | params | compute | Adam state | master copy |
 |--------|--------|---------|------------|-------------|
-| `fp32` | fp32 | fp32 | fp32 | — (params are it) |
+| `fp32` | fp32 | fp32 | fp32 | not needed (parameters are already fp32) |
 | `mixed` | fp32 | autocast bf16 | fp32 | ✓ (the fp32 params) |
 | `bf16` | bf16 | bf16 | **bf16** | ✗ (naive "everything bf16") |
 
@@ -81,23 +81,23 @@ A char-level GPT (6 layers, width 384, ~10M params, model definition ships with 
 | train loss @6000 (EMA) | 0.078 | 0.079 | 0.079 |
 | val loss @6000 | 4.26 | 4.24 | **3.51** |
 
-Three readings, each ruder than the last:
+The results require three observations:
 
-1. **Mixed is bit-for-bit indistinguishable from fp32** while running 3.6× faster on 35% less memory. In panel (a) the two curves sit exactly on top of each other, 0.079 vs 0.078. The mixed-precision promise of "fp32 convergence at bf16 speed" cashes out cleanly at this scale.
-2. **Naive all-bf16 does not break.** Its train loss tracks throughout, and its val loss is the *best* of the three, 3.51 vs 4.24. The reason is that 10M parameters memorizing 1.1M characters overfit long before step 6000, val turns upward from ~step 1300, and bf16's rounding noise acts as a regularizer, so it overfits slowest. The textbook says training without a master copy fails, but the toy says it's fine. Who's lying?
-3. Panel (c)'s **swallow audit** provides the clue. Inside the mixed run, whose fp32 params are a trustworthy reference, every 200 steps we take the step's true update $$\Delta$$ and simulate bf16 rounding per parameter. The fraction where $$(w_{\rm bf16}+\Delta)$$ rounds back to exactly $$w_{\rm bf16}$$ climbs from ~25% at full LR to **87%** as cosine decay bites. In late training, four updates out of five would land on a bf16 weight and change nothing. The toy shrugs it off only because by then the task is already learned, so those updates carried nothing. **When updates shrink not because learning is done but because the LR schedule must decay while the task is far from learned, which is the everyday situation of large-model training, what gets swallowed is real progress.**
+1. **Mixed precision closely matches fp32** while running 3.6× faster and using 35% less peak memory. Their final EMA training losses are 0.079 and 0.078, and their curves nearly overlap in panel (a).
+2. **Naive all-bf16 training does not fail in this small run.** Its training loss follows the other schemes, and its final validation loss is lower, at 3.51 versus 4.24 for mixed precision. The 10M-parameter model begins overfitting the 1.1M-character dataset near step 1300. bf16 rounding noise appears to regularize the model and delay overfitting. This result does not show whether the optimizer can preserve small useful updates later in training.
+3. Panel (c) measures the fraction of updates that would be lost to bf16 rounding. Every 200 steps in the mixed run, we take the fp32 update $\Delta$ and simulate applying it to each bf16 parameter. The fraction for which $(w_{\rm bf16}+\Delta)$ rounds back to $w_{\rm bf16}$ rises from about 25% at the initial learning rate to **87%** after cosine decay. This has little visible effect once the small task is already fitted, but it can matter when useful updates become small before training is complete.
 
-Panel (b) isolates exactly that regime. The same model is trained from scratch at a constant lr = 3e-5, which puts updates around and below the $$|w|/512$$ threshold, precisely the magnitude a decayed large-model LR produces. Mixed and fp32 remain bit-for-bit twins, grinding steadily down to 1.50, but **pure bf16 rides its first 500 steps of large gradients down to 2.57 and then barely moves (2.41 by step 3000)**, a 0.9-nat gap that is still widening. The master copy's value is visible in one glance. In fp32, small updates accumulate until they clear $$|w|/512$$ and surface in the projection. Without a master, each step's small update is rounded away independently, and **accumulation simply never happens**.
+Panel (b) isolates this regime by training the same model from scratch with a constant learning rate of 3e-5. Many updates are then near or below the $|w|/512$ threshold. Mixed precision and fp32 both reach a loss of 1.50. Pure bf16 falls to 2.57 during the first 500 steps, when gradients are larger, but then improves only to 2.41 by step 3000. With an fp32 master, small updates accumulate until they change the projected bf16 copy. Without a master, each update can round away independently before accumulation occurs.
 
 {% include figure.liquid loading="eager" path="assets/img/blog/distributed/08/fig-4-gemm-and-gradhist.svg" class="img-fluid rounded" zoomable=true %}
 
-The left panel is §3.1's 5× argument. The right panel answers why fp16 needs loss scaling. It shows the distribution of every parameter gradient at step 500, and **57% sit below fp16's minimum normal 6.1e-5**, entering the subnormal zone where precision bleeds away bit by bit (0.05% flush straight to zero). That is the population loss scaling exists to relocate, because ×1024 shifts the whole distribution three decades right, back into normal territory. bf16/fp32's floor is 1.2e-38, twenty-six decades left of this histogram's tail, so nothing needs doing.
+The left panel reports the 5× GEMM throughput difference discussed in Section 3.1. The right panel shows the distribution of parameter gradients at step 500. **Fifty-seven percent are below fp16's minimum normal value of 6.1e-5**, where values become subnormal and lose precision. About 0.05% underflow to zero. Multiplying the loss by 1024 shifts this distribution about three orders of magnitude upward before the gradients are unscaled. bf16 and fp32 have a minimum normal value near 1.2e-38, far below the measured range.
 
-> Honest boundary: our "disease made visible" uses a small-LR isolation run, not a natural training trajectory. In real large models (GPT-3-era practice onward, and the fp16 story in the original mixed-precision paper) the damage occurs *on* the natural trajectory in mid-to-late training, because the larger the model and the longer the run, the smaller updates get relative to weights, and the further no-master training falls behind. Note also that our bf16 scheme keeps Adam's $$m, v$$ in bf16 too, and $$v$$, a running mean of squared gradients, is tinier still. Production systems that put parameters in bf16 almost never dare downgrade the state.
+> **Boundary of the experiment.** The constant small-learning-rate run isolates the rounding mechanism rather than following a typical training schedule. In larger and longer runs, parameter updates often become small relative to parameter values during normal middle and late training. Our all-bf16 scheme also stores Adam's $m$ and $v$ states in bf16. The second moment $v$ accumulates squared gradients and can be even more sensitive, which is why production systems usually keep optimizer states in fp32.
 
 ## 5. Reading along in real source
 
-**PyTorch autocast**: `torch/amp` keeps an operator list where matmul/conv run bf16, softmax/layer_norm/loss stay fp32, and casts are inserted at op boundaries. You never see the casts in your code, but they are real.
+**PyTorch autocast:** `torch/amp` uses operation-specific dtype rules. Matrix multiplication and convolution can run in bf16, while operations such as softmax, LayerNorm and losses may remain fp32. PyTorch inserts the required casts at operation boundaries.
 
 **FSDP2**: `MixedPrecisionPolicy(param_dtype=torch.bfloat16, reduce_dtype=torch.float32)`, used in post #4. Sharded params (state) stay in fp32, all-gathered compute copies (flow) run in bf16, and the reduce-scatter happens in fp32.
 
@@ -105,16 +105,16 @@ The left panel is §3.1's 5× argument. The right panel answers why fp16 needs l
 
 **Megatron-LM**: `Float16OptimizerWithFloat16Params` in `megatron/core/optimizer/optimizer.py` does the `main_params` (fp32 master) / `model_params` (bf16) double bookkeeping, plus `--accumulate-allreduce-grads-in-fp32`.
 
-**DeepSpeed ZeRO**: the "optimizer state" that stage 1 shards (post #3) *includes* the fp32 master, which is why ZeRO-1 saves $$(4+4+4)\Psi/N$$ while the $$2\Psi$$ bf16 copy stays replicated.
+**DeepSpeed ZeRO:** the optimizer state sharded by stage 1 includes fp32 master parameters. ZeRO-1 therefore shards $(4+4+4)\Psi$ bytes of master parameters and Adam moments across $N$ ranks, while the 2Ψ bf16 compute copy remains replicated.
 
 ## 6. Summary, and closing the series
 
-1. Precision and range are different purchases. fp16 spends its 16 bits on mantissa and pays with a narrow range that needs loss scaling as life support, while bf16 spends them on fp32's full range and pays with 2.4 digits and no life support, which is how the bf16 era happened.
-2. The whole design fits in one line. **Flow runs bf16 (activations and in-flight gradients, per-token volume) while state stays fp32 (masters, moments, accumulation buffers, per-parameter ledgers)**, stitched by the hardware fp32 accumulator, one lossless upcast, and one per-step reprojection.
-3. Why the master copy cannot be skipped is computable, because updates below $$|w|/512$$ round to exactly zero in bf16, and by the end of LR decay that is a measured 87% of updates. At toy scale the disease hides (rounding noise even regularizes), but isolate small updates and the no-master model stalls at 2.41 while mixed grinds to 1.50.
-4. Post #0's $$16\Psi/18\Psi$$ now has every line item sourced: $$2\Psi$$ (bf16 params) $$+\,4\Psi$$ (fp32 master) $$+\,4\Psi+4\Psi$$ ($$m$$, $$v$$) $$+\,2\Psi|4\Psi$$ (gradients, depending on accumulation precision).
+1. Precision and range are separate properties. fp16 provides more mantissa bits but a narrower exponent range, so small gradients may require loss scaling. bf16 uses fp32's exponent width and usually avoids loss scaling, but retains only about 2.4 decimal digits of precision.
+2. **Flow tensors use bf16, while persistent state uses fp32.** Activations and temporary gradients account for most per-token volume. Master parameters, optimizer moments and accumulation buffers need fp32 for repeated small additions. Hardware fp32 accumulation, exact bf16-to-fp32 casts and per-step projection connect the two.
+3. Updates below the stated $|w|/512$ threshold can round to no parameter change in bf16. The audit reaches 87% after learning-rate decay. The small default run hides this effect because rounding noise also reduces overfitting, but the constant-small-LR run separates the mechanisms: the no-master model stalls at 2.41 while mixed precision reaches 1.50.
+4. The 16Ψ and 18Ψ ledgers from post #0 consist of 2Ψ bf16 parameters, 4Ψ fp32 master parameters, 4Ψ each for Adam's $m$ and $v$, and either 2Ψ or 4Ψ for gradients depending on accumulation precision.
 
-**This closes the series.** One thread ran through all nine posts. Every design decision in distributed training reduces to a handful of accounts you can check by hand, whether communication volume (post #1's bandwidth table), memory (the $$\Psi$$ ledger), bubbles (grid geometry), or numerics (this post's one-in-512). Next time you meet any parallelism scheme, may your first instinct be to price it out and run the numbers.
+**This closes the series.** The nine posts use four recurring tools: communication volume from post #1, the $\Psi$ memory ledger, schedule geometry and numerical precision. Together they provide a way to evaluate a new parallel training method by identifying what it stores, what it communicates, when it waits and where it loses numerical information.
 
 ---
 

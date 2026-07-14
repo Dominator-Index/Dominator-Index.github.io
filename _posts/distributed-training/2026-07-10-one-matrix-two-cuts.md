@@ -2,7 +2,7 @@
 layout: post
 title: "One Matrix, Two Cuts: Tensor Parallelism From Scratch"
 date: 2026-07-10 10:00:00
-description: "Why Column→Row is forced by the nonlinearity, a full backward-pass derivation showing that ALL weight gradients are communication-free, the bs/3h crossover against DP, and a hand-written TP MLP verified bit-exact against one GPU."
+description: "Why tensor parallelism uses a column cut followed by a row cut, why weight gradients remain local, how its communication compares with data parallelism, and what an 8-GPU implementation measures."
 tags: distributed-training deep-learning
 categories: distributed-training
 thumbnail: assets/img/blog/distributed/05/fig-1-golden-pair.png
@@ -11,22 +11,22 @@ toc:
 related_posts: false
 ---
 
-> TP cuts the computation of a single layer, and the Column→Row order is dictated by the nonlinearity. Unlike most tutorials, this post derives the backward pass in full, which reveals a beautiful fact rarely spelled out. In TP, **every weight gradient is communication-free**, and communication only ever touches activations. The experiments verify a hand-written Column+Row MLP numerically exact against a single GPU, then measure the TP=2/4/8 communication share on pure PCIe.
+> Tensor parallelism divides the computation of a single layer. The nonlinearity requires a column-parallel layer to come before a row-parallel layer. A full backward derivation shows that **all weight-gradient computations remain local** and only activation boundaries communicate. We verify a hand-written column-plus-row MLP against a single-GPU implementation, then measure TP sizes 2, 4 and 8 on PCIe.
 
-## 1. Until now, computation was never cut
+## 1. From sharded storage to sharded computation
 
-The previous four posts sharded **storage**. ZeRO/FSDP split parameters, gradients and optimizer state, but every forward pass all-gathers the parameters back, so **the matrix multiply itself still runs whole on every GPU**. When a single layer's compute or activations are themselves too big or too slow, you need tensor parallelism (TP), which splits $$Y = XW^\top$$, *one* matmul, across $$N$$ GPUs, each doing $$1/N$$ of it.
+The previous four posts focused on **storage sharding**. ZeRO and FSDP divide parameters, gradients and optimizer states, but they gather each layer's parameters before computation. The full matrix multiplication therefore still runs on every GPU. Tensor parallelism (TP) instead divides one multiplication, $Y = XW^\top$, across $N$ GPUs so that each performs roughly $1/N$ of the work.
 
-There are two natural directions to cut. Notation (PyTorch layout, series-wide): weight $$W \in \mathbb{R}^{d_{\text{out}} \times d_{\text{in}}}$$, activations $$X \in \mathbb{R}^{bs \times d_{\text{in}}}$$, the layer computes $$Y = XW^\top$$:
+A matrix can be divided along either dimension. We use the PyTorch layout $W \in \mathbb{R}^{d_{\text{out}} \times d_{\text{in}}}$ and activations $X \in \mathbb{R}^{bs \times d_{\text{in}}}$, with $Y = XW^\top$:
 
-- **Column cut** (Megatron's `ColumnParallelLinear`): split along $$d_{\text{out}}$$, so rank $$k$$ holds $$W_k = W[k\frac{d_{\text{out}}}{N}:(k{+}1)\frac{d_{\text{out}}}{N},\,:]$$, which is **complete rows**. $$X$$ is replicated, and the output comes out naturally column-blocked as $$Y_k = XW_k^\top$$ with **zero communication**, but each rank has only $$1/N$$ of the output.
-- **Row cut** (`RowParallelLinear`): split along $$d_{\text{in}}$$. This *requires* the input to arrive blocked the same way ($$X_k$$), and the output is a **partial sum** $$Y = \sum_k X_k W_k^\top$$, one all-reduce away from complete.
+- **Column cut** (`ColumnParallelLinear` in Megatron): split along $d_{\text{out}}$. Rank $k$ stores $W_k = W[k\frac{d_{\text{out}}}{N}:(k{+}1)\frac{d_{\text{out}}}{N},\,:]$, which contains complete rows. $X$ is replicated, so each rank computes its output block $Y_k = XW_k^\top$ without communication. Each rank holds only $1/N$ of the output features.
+- **Row cut** (`RowParallelLinear`): split along $d_{\text{in}}$. Each rank must receive the corresponding input block $X_k$. It computes one partial output, and an all-reduce forms the complete result $Y = \sum_k X_k W_k^\top$.
 
-> A naming trap, resolved once. Megatron's Column/Row refer to the math convention $$Y=XW$$ with $$W\in\mathbb{R}^{d_{\text{in}}\times d_{\text{out}}}$$ (Column = the output dim), but in PyTorch's `[out, in]` tensor layout that is precisely a **dim-0 (row) cut**. The one question that never misleads is **"is each row (fan-in vector) still whole?"** The Column cut says yes and the Row cut says no. This distinction becomes life-or-death in post #9.
+> **Naming convention.** Megatron names the cuts using $Y=XW$ with $W\in\mathbb{R}^{d_{\text{in}}\times d_{\text{out}}}$, so its column cut divides the output dimension. PyTorch stores linear weights as `[out, in]`, making the same partition a dim-0 row cut in memory. A reliable question is whether each fan-in row remains complete: it does under `ColumnParallelLinear` and does not under `RowParallelLinear`. This distinction matters again in post #9.
 
-## 2. The golden pair: two defects that cancel
+## 2. Why the column cut comes before the row cut
 
-Each cut alone has a defect. Column leaves the output blocked while Row demands a blocked input. Megatron's insight is that **the two defects cancel exactly**, because Column's blocked output *is* the blocked input Row wants:
+The two cuts have matching interfaces. A column-parallel layer produces a feature-partitioned output, and a row-parallel layer expects a feature-partitioned input. Placing them next to each other therefore requires no communication between the two layers:
 
 {% include figure.liquid loading="eager" path="assets/img/blog/distributed/05/fig-1-golden-pair.svg" class="img-fluid rounded" zoomable=true %}
 
@@ -36,7 +36,7 @@ $$
 X \xrightarrow{\ f\ } \underbrace{Y_k = \mathrm{GeLU}(XW_{1,k}^\top)}_{\text{Column cut, no comm}} \longrightarrow \underbrace{Z_k = Y_k W_{2,k}^\top}_{\text{Row cut, no comm}} \xrightarrow{\ g:\ \text{all-reduce}\ } Z = \textstyle\sum_k Z_k
 $$
 
-**The GeLU lands exactly on the "each rank owns its complete block" state, so apply it element-wise and be done.** One all-reduce per MLP forward, at the exit. Why can't the order flip? Because GeLU is nonlinear:
+Each rank owns a complete block of pre-activation values, so it can apply GeLU locally. The MLP needs only one all-reduce, at the output of the row-parallel layer. Reversing the order does not work as well because GeLU is nonlinear:
 
 {% include figure.liquid loading="eager" path="assets/img/blog/distributed/05/fig-2-why-order.svg" class="img-fluid rounded" zoomable=true %}
 
@@ -44,21 +44,21 @@ $$
 \mathrm{GeLU}(Z_0 + Z_1) \neq \mathrm{GeLU}(Z_0) + \mathrm{GeLU}(Z_1)
 $$
 
-Row-cut first, and fc1's output is a partial sum that **must be all-reduced before the GeLU**, which forces communication into the middle of the layer, two collectives instead of one. **The position of the nonlinearity dictates the cut order. That is the entire design of Megatron TP.** Attention is the same story, more natural still. Each head is already an independent unit, so QKV projections are Column-cut (whole heads per rank), the output projection $$W_O$$ is Row-cut, and softmax (per-head) sits in the middle communication-free.
+If fc1 is row-parallel, its output is only a partial sum and **must be all-reduced before GeLU**. A second collective is still needed after fc2, so the MLP would communicate twice instead of once. The position of the nonlinearity therefore determines the column-then-row order. Attention follows the same structure: QKV projections are column-parallel so that each rank owns complete heads, softmax runs locally within each head, and the output projection $W_O$ is row-parallel.
 
-## 3. The backward pass: derive every gradient, see where communication really is
+## 3. Backward pass: locating every communication
 
-Most tutorials skip this part, yet it answers why TP's communication is as cheap as it is. Backward through the dataflow above (write $$\bar{A} \equiv \frac{\partial L}{\partial A}$$, given $$\bar{Z}$$, and note that $$g$$'s backward is identity, so $$\bar{Z}$$ is replicated):
+The backward pass shows exactly which tensors require communication. Write $\bar{A} \equiv \frac{\partial L}{\partial A}$. Given replicated $\bar{Z}$, the backward operation of $g$ is the identity:
 
-**(1) The Row layer's weight gradient costs no communication:**
+**(1) The row-parallel layer's weight gradient is local:**
 
 $$
 \bar{W}_{2,k} = \bar{Z}^\top Y_k
 $$
 
-$$\bar{Z}$$ is on every rank (replicated) and $$Y_k$$ lives on this rank already, so both multiplicands are local and **no communication is needed**. Note also that $$\bar{W}_{2,k}$$ is exactly the gradient of this rank's own shard, so storage and update stay fully local (naturally orthogonal to ZeRO/FSDP).
+Every rank has $\bar{Z}$, and rank $k$ already stores $Y_k$. Both factors are local, so no communication is needed. The result $\bar{W}_{2,k}$ is the gradient of the weight shard owned by that rank and can also be stored and updated locally.
 
-**(2) The intermediate activation's gradient costs no communication:**
+**(2) The intermediate activation gradient is local:**
 
 $$
 \bar{Y}_k = \bar{Z}\, W_{2,k}, \qquad \bar{Y}^{\text{pre}}_k = \bar{Y}_k \odot \mathrm{GeLU}'(XW_{1,k}^\top)
@@ -66,39 +66,39 @@ $$
 
 This uses only this rank's $$W_{2,k}$$ and this rank's activations, so it is local.
 
-**(3) The Column layer's weight gradient costs no communication:**
+**(3) The column-parallel layer's weight gradient is local:**
 
 $$
 \bar{W}_{1,k} = (\bar{Y}^{\text{pre}}_k)^\top X
 $$
 
-$$X$$ is replicated ($$f$$'s forward is a copy) and $$\bar{Y}^{\text{pre}}_k$$ is local, so this one is free again.
+$X$ is replicated by the forward operation of $f$, and $\bar{Y}^{\text{pre}}_k$ is local. This multiplication therefore needs no communication.
 
-**(4) The input's gradient is the one and only communication:**
+**(4) The input gradient requires an all-reduce:**
 
 $$
 \bar{X} = \sum_k \bar{Y}^{\text{pre}}_k W_{1,k}
 $$
 
-Each rank can compute only its own term of a **partial sum**, hence an all-reduce. That is $$f$$'s backward.
+Each rank computes one term of this sum, so an all-reduce is required to form $\bar{X}$. This is the backward operation of $f$.
 
-Put the four together and a clean structural fact emerges:
+Together, the four equations give the following communication pattern:
 
-> **All weight gradients are communication-free. Communication happens only at activation boundaries ($$f$$'s backward, $$g$$'s forward), and $$f/g$$ are conjugates, so one copies forward and sums backward while the other does the reverse.** The per-layer bill is 1 forward AR + 1 backward AR for the MLP, plus the same pair for attention, which makes **4 activation all-reduces per layer per step.**
+> **All weight-gradient computations are local. Communication occurs only at activation boundaries: $g$ performs an all-reduce in forward, while $f$ performs one in backward.** An MLP therefore uses one forward and one backward activation all-reduce. Attention uses the same pair, for a total of **four activation all-reduces per transformer layer and training step.**
 
-Why are weight gradients free? Because the golden pair guarantees that **each weight shard's two multiplicands, its own activation block and the replicated boundary activation, are both local.** That is not luck. It is what "aligning the cut geometry with the dataflow" buys. This view runs deeper than memorizing "Column pairs with Row," and it generalizes, because to audit any new parallelism scheme's communication you can **stare at each gradient formula and ask "are the multiplicands local?"**
+Weight gradients remain local because both factors in each gradient multiplication are available on the rank that owns the corresponding weight shard. This follows from matching the partition layout to the dataflow. The same test applies to other parallel schemes: for each gradient formula, check whether every required factor is local.
 
-## 4. The bill: TP moves activations, and that is its essential difference from DP
+## 4. Communication cost: TP moves activations, DP moves gradients
 
-DP synchronizes **gradients** each step ($$\sim 2\Psi$$ bytes, independent of batch), but TP moves **activations** $$[bs \times h]$$ every layer (proportional to batch, independent of parameter count). The ratio ($$L$$ layers, $$\Psi \approx 12Lh^2$$, 4 ARs per layer):
+DP synchronizes **gradients** once per step, moving roughly $2\Psi$ bytes independent of batch size. TP communicates **activations** of shape $[bs \times h]$ four times per layer, so its volume grows with the number of tokens but not directly with parameter count. For $L$ layers and $\Psi \approx 12Lh^2$:
 
 $$
 \frac{\text{TP comm per step}}{\text{DP comm per step}} = \frac{L \cdot 4 \cdot bsh}{\Psi} = \frac{4L \cdot bsh}{12Lh^2} = \frac{bs}{3h}
 $$
 
-(the common $$2\frac{N-1}{N}$$ factor cancels, same dtype assumed.) Past $$3h$$ tokens per rank (GPT-2 Large: 3840), TP out-communicates DP, which in training is essentially always. **And TP's communication comes as serial, per-layer, latency-critical packets wedged between matmuls** (hard to overlap), while DP's is one large per-step transfer that bucketing hides (post #2). This is the quantitative version of post #0's iron rule that *tp stays inside the node.*
+The common $2\frac{N-1}{N}$ factor cancels when both use the same dtype. TP moves more data than DP once each rank processes more than $3h$ tokens, or 3840 tokens for GPT-2 Large, which is common during training. TP also communicates between layer computations through smaller, latency-sensitive collectives that are difficult to overlap. DP instead communicates large gradient buckets that can overlap with backward computation (post #2). This is why TP is usually kept within a node on the fastest available interconnect.
 
-## 5. Experiment: exactness verified, and the PCIe reality check
+## 5. Experiment: numerical equivalence and PCIe scaling
 
 A hand-written Column+Row MLP (~40 lines of core, ships with the post), GPT-2 Large geometry (h=1280, ff=5120, 4096 tokens), checked against a single GPU:
 
@@ -108,32 +108,32 @@ A hand-written Column+Row MLP (~40 lines of core, ships with the post), GPT-2 La
 | 4 | 3.8e-6 | 2.8e-12 |
 | 8 | 3.3e-6 | 2.6e-12 |
 
-The 1e-6 forward error is fp32 summation-order rounding (all-reduce adds in a different order than a fused matmul), and backward agrees to 1e-12. **TP, like DP, is an exact algorithm, not an approximation**, so "zero communication in the middle" costs no precision.
+The forward difference of about 1e-6 comes from fp32 summation order: all-reduce combines partial sums in a different order from the single-GPU matrix multiplication. The input-gradient difference is about 1e-12. TP changes the distribution of exact operations rather than introducing an algorithmic approximation.
 
 Speed (one MLP forward, compute/communication decomposed):
 
 {% include figure.liquid loading="eager" path="assets/img/blog/distributed/05/fig-3-tp-scaling.svg" class="img-fluid rounded" zoomable=true %}
 
-- **Compute divides perfectly by N**: 1.32 → 0.64 → 0.34 ms, so mathematically TP is impeccable.
-- **Communication grows with N**: the all-reduce message is constant ($$[4096\times1280]$$ fp32 = 21 MB) but the ring gets longer and crosses more NUMA boundaries, so timing goes 1.07 → 1.66 → 2.09 ms. Reconciling with post #1, 21 MB in 2.09 ms → algbw ≈ 10 GB/s, precisely the measured 8-GPU all-reduce plateau ✓.
-- **Total time doesn't move** (2.39 → 2.30 → 2.43 ms), while the communication share climbs 45% → 72% → **86%**. On a machine without NVLink, TP hands every saved FLOP to the wires, which is **not TP's failure but the measured proof of "TP must live inside a fast-interconnect domain."** On NVLink (~25× the bandwidth) the same experiment's comm term divides by ~25 and TP=8's share falls back to ~20%.
+- **Compute time decreases nearly in proportion to $N$:** 1.32 → 0.64 → 0.34 ms.
+- **Communication time increases with $N$:** the all-reduce message remains 21 MB ($[4096\times1280]$ in fp32), but the ring uses more steps and crosses more NUMA boundaries. Time rises from 1.07 to 1.66 to 2.09 ms. At TP=8, 21 MB in 2.09 ms corresponds to about 10 GB/s algbw, matching post #1's all-reduce measurement.
+- **Total time remains almost unchanged:** 2.39 → 2.30 → 2.43 ms, while communication grows from 45% to 72% to **86%** of the total. On this machine without NVLink, the reduced compute time is offset by communication. With an interconnect about 25× faster, the communication estimate would fall by a similar factor and the TP=8 communication share would be about 20%.
 
 ## 6. Reading along in real source
 
-**Megatron-LM** keeps `ColumnParallelLinear` / `RowParallelLinear` in `megatron/core/tensor_parallel/layers.py`, with the $$f/g$$ operators in `mappings.py`: `copy_to_tensor_model_parallel_region` = $$f$$ and `reduce_from_tensor_model_parallel_region` = $$g$$, names that literally say copy-in / reduce-out.
+**Megatron-LM** implements `ColumnParallelLinear` and `RowParallelLinear` in `megatron/core/tensor_parallel/layers.py`. The $f/g$ operators are in `mappings.py`: `copy_to_tensor_model_parallel_region` implements $f$, and `reduce_from_tensor_model_parallel_region` implements $g$.
 
-**nanotron** has `TensorParallelColumnLinear` (`SplitConfig(split_dim=0)`, the tensor-row cut) and `TensorParallelRowLinear` (`split_dim=1`) in `src/nanotron/parallel/tensor_parallel/nn.py`. The differentiable primitives in `distributed_differentiable_primitives.py` implement $$f/g$$ as `autograd.Function`s, which is §3's derivation as code.
+**nanotron** provides `TensorParallelColumnLinear` with `SplitConfig(split_dim=0)` and `TensorParallelRowLinear` with `split_dim=1` in `src/nanotron/parallel/tensor_parallel/nn.py`. The differentiable primitives in `distributed_differentiable_primitives.py` implement $f/g$ as `autograd.Function`s corresponding to the derivation in Section 3.
 
-**Our `bench_tp.py`** strips those classes to the bone: one shard per rank, one all_reduce, all of §3 reproducible in 40 lines.
+**Our `bench_tp.py`** reduces the implementation to one weight shard per rank and one all-reduce. The core communication pattern from Section 3 fits in about 40 lines.
 
 ## 7. Summary
 
-1. TP is the first scheme to cut **computation**. Column (rows whole, output blocked) + Row (rows severed, output partial-summed) form the golden pair, **the nonlinearity's position dictates the order**, and the middle is communication-free.
-2. Deriving the backward term by term shows that **weight gradients are all communication-free and only activation boundaries communicate** ($$f$$-backward + $$g$$-forward), 4 activation ARs per layer per step. The general audit method is to stare at each gradient formula and ask *are the multiplicands local?*.
-3. TP comm ∝ activations ($$bsh$$) while DP comm ∝ parameters ($$\Psi$$), with ratio $$bs/3h$$. TP is almost always the bigger bill, serial and hard to overlap, which is the quantitative basis for keeping tp inside nodes.
-4. Measured, TP is an exact algorithm (error = rounding order). On PCIe, compute scales perfectly ÷N while total time stays flat (comm share 86%), which is the iron rule as an experiment.
+1. TP divides **layer computation**. A column-parallel layer produces the partitioned input required by a row-parallel layer, and the nonlinearity determines this order. No communication is needed between the pair.
+2. The backward derivation shows that **all weight-gradient computations are local**. Only activation boundaries communicate through $f$ in backward and $g$ in forward, giving four activation all-reduces per layer and step. The general test is whether every factor in each gradient multiplication is local.
+3. TP communication scales with activation size $bsh$, while DP communication scales with parameter count $\Psi$. Their volume ratio is $bs/3h$. Because TP collectives occur between layer computations and are difficult to overlap, TP is usually kept within a node.
+4. The implementation matches the single-GPU result up to floating-point summation order. On PCIe, compute time decreases with $N$ but total time remains flat because communication reaches 86% of the TP=8 runtime.
 
-**Next comes Sequence & Context Parallelism.** TP cut the weights, but each rank's activations are still the full $$[b \times s \times h]$$. The parts TP cannot reach (LayerNorm, dropout) and the long-context attention problem both call for cutting along the **sequence** dimension, and they get two different schemes for two different problems.
+**Next comes Sequence and Context Parallelism.** TP divides weights and layer computation, but each rank still stores full $[b \times s \times h]$ activations at region boundaries. Sequence parallelism shards the LayerNorm and dropout activations left replicated by TP, while context parallelism addresses the larger memory and compute cost of long-context attention.
 
 ---
 
