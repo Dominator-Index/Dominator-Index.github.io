@@ -8,7 +8,6 @@ categories: distributed-training
 thumbnail: assets/img/blog/distributed/01/fig-2-ring-allreduce.png
 toc:
   sidebar: left
-featured: true
 related_posts: false
 ---
 
