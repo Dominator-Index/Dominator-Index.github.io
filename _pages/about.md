@@ -1,6 +1,6 @@
 ---
 layout: about
-title: about
+title: About
 permalink: /
 subtitle: >
   Junior Undergraduate, <a href="https://eee.sustech.edu.cn/">Dept. of Electrical and Electronic Engineering</a>, <a href="https://www.sustech.edu.cn/">Southern University of Science and Technology (SUSTech)</a>
