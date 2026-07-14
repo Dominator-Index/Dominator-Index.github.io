@@ -64,7 +64,7 @@ Ring all-reduce approaches this bound. It arranges the $N$ GPUs in a logical rin
 
 The two phases work as follows:
 
-- **Phase 1, reduce-scatter (RS steps 1–3):** at each step, every GPU sends one shard, receives one shard, and adds the received values to its local partial sum. Within a single step, the four links each carry a *different* shard — the figure colors and numbers each arrow to match the shard it carries, and rings the destination slot with that same color plus a `+` when it has just been added into. After $N-1$ steps, each GPU owns one fully reduced shard (Σ).
+- **Phase 1, reduce-scatter (RS steps 1–3):** at each step, every GPU sends one shard, receives one shard, and adds the received values to its local partial sum. Within a single step, the four links each carry a *different* shard — the figure colors and numbers each arc to match the shard it carries, and rings the destination slot with that same color plus a `+` when it has just been added into. A worked example above the panels spells out one hop as an actual addition: *own share + arriving shard = one more term summed*. After $N-1$ steps, each GPU owns one fully reduced shard (Σ).
 - **Phase 2, all-gather (AG steps 1–3):** the completed shards circulate around the ring without further arithmetic until every GPU has all Σ shards.
 - At every step, each GPU sends to its successor and receives from its predecessor at the same time. This uses both directions of the full-duplex link. Send and receive volumes are equal, which is why we report only the send volume.
 

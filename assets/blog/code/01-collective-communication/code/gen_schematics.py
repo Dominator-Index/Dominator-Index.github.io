@@ -9,6 +9,7 @@ Generates:
 Colors follow _shared/style-guide.md. In-figure text is English (shared by the CN and EN versions).
 """
 
+import math
 import os
 
 SURFACE = "#0b0f19"
@@ -73,12 +74,33 @@ def arrow(x1, y1, x2, y2, color=GLOW, marker="arr", dash=False, width=1.6):
                    f'stroke-width="{width}" marker-end="url(#{marker})"{d}/>\n')
 
 
-def bezier_point(t, p0, p1, p2, p3):
-    """Point at parameter t on a cubic Bezier defined by 4 (x, y) control points."""
-    mt = 1 - t
-    x = mt**3 * p0[0] + 3 * mt**2 * t * p1[0] + 3 * mt * t**2 * p2[0] + t**3 * p3[0]
-    y = mt**3 * p0[1] + 3 * mt**2 * t * p1[1] + 3 * mt * t**2 * p2[1] + t**3 * p3[1]
-    return x, y
+def inline_row(cx, cy, items):
+    """A horizontal sequence of chip/text tokens, each with an explicit width, centered
+    as a group at (cx, cy). Used for the worked "own + arriving = summed" equation."""
+    total = sum(it["w"] for it in items)
+    x = cx - total / 2
+    out = ""
+    for it in items:
+        w = it["w"]
+        if it["kind"] == "chip":
+            size = it.get("size", 11)
+            cx0, cy0 = x + w / 2 - size / 2, cy - size / 2
+            extra = f' stroke="{it["color"]}" stroke-width="{it.get("sw", 1.4)}"' if it.get("ring") else ""
+            out += (f'<rect x="{cx0:.1f}" y="{cy0:.1f}" width="{size}" height="{size}" rx="2.2" '
+                    f'fill="{it["color"]}" opacity="{it.get("op", 1.0)}"{extra}/>\n')
+            if it.get("glyph"):
+                out += text(cx0 + size / 2, cy0 + size / 2 + 3, it["glyph"], it.get("gsize", 7.5), "#0b0f19", weight="bold")
+        else:  # text
+            out += text(x + w / 2, cy + it.get("dy", 3.5), it["s"], it.get("size", 10.5),
+                        it.get("fill", TEXT2), weight=it.get("weight", "normal"))
+        x += w
+    return out
+
+
+def polar(ccx, ccy, r, deg):
+    """Point at angle `deg` (0=+x axis, increasing = clockwise on screen) on a circle."""
+    rad = math.radians(deg)
+    return ccx + r * math.cos(rad), ccy + r * math.sin(rad)
 
 
 def flying_chip(cx, cy, color, idx, size=15):
@@ -172,24 +194,110 @@ def fig1():
 
 
 # ---------------------------------------------------------------- fig 2
+# Ring geometry shared by every panel: G0 top, G1 right, G2 bottom, G3 left,
+# increasing k = clockwise on screen (matches the ring's send direction).
+NODE_ANGLE = [-90, 0, 90, 180]
+RING_R = 72
+NODE_W, NODE_H = 50, 28
+RING_CHIP, RING_GAP = 10, 1.4
+ARC_CLEARANCE = 25  # degrees kept clear of each node so arcs don't cross the boxes
+
+
+def ring_node(ccx, ccy, k, cnt_row, just_updated):
+    """One GPU's box (label + 4 shard chips) at its compass position on the ring."""
+    nx, ny = polar(ccx, ccy, RING_R, NODE_ANGLE[k])
+    bx, by = nx - NODE_W / 2, ny - NODE_H / 2
+    out = (f'<rect x="{bx:.1f}" y="{by:.1f}" width="{NODE_W}" height="{NODE_H}" rx="6" '
+           f'fill="{SURFACE2}" stroke="{GLOW}" stroke-width="1.1"/>\n')
+    out += text(bx + 5, by + 9.5, f"G{k}", 7.5, TEXT2, "start", weight="bold")
+    row_w = 4 * RING_CHIP + 3 * RING_GAP
+    cx0, cy = nx - row_w / 2, by + NODE_H - RING_CHIP - 3
+    for j in range(4):
+        n = cnt_row[j]
+        full = n == 4
+        op = {1: 0.30, 2: 0.55, 3: 0.8, 4: 1.0}[n]
+        cx = cx0 + j * (RING_CHIP + RING_GAP)
+        if full:
+            extra = f' stroke="{TEXT}" stroke-width="1.2"'
+        elif j == just_updated:
+            extra = f' stroke="{S[j]}" stroke-width="1.5"'
+        else:
+            extra = ""
+        out += (f'<rect x="{cx:.1f}" y="{cy:.1f}" width="{RING_CHIP}" height="{RING_CHIP}" rx="2.2" '
+                f'fill="{S[j]}" opacity="{op}"{extra}/>\n')
+        if full:
+            out += text(cx + RING_CHIP / 2, cy + RING_CHIP / 2 + 3, "&#931;", 7.5, "#0b0f19", weight="bold")
+        elif j == just_updated:
+            out += text(cx + RING_CHIP / 2, cy + RING_CHIP / 2 + 3, "+", 8, "#0b0f19", weight="bold")
+    return out
+
+
+def ring_panel(ccx, ccy, cnt, rs_step, title):
+    """One full step: faint ring guide, 4 colored/numbered arcs (or neutral for AG), 4 nodes."""
+    out = text(ccx, ccy - RING_R - NODE_H / 2 - 12, title, 12.5, GLOW, weight="bold")
+    out += (f'<circle cx="{ccx}" cy="{ccy}" r="{RING_R}" fill="none" '
+            f'stroke="rgba(0,200,255,0.16)" stroke-width="1" stroke-dasharray="2,4"/>\n')
+    if rs_step is not None:
+        for k in range(4):
+            b = (k + 1) % 4
+            a0 = NODE_ANGLE[k] + ARC_CLEARANCE
+            a1 = NODE_ANGLE[k] + 90 - ARC_CLEARANCE
+            if isinstance(rs_step, int):
+                idx = (b - rs_step) % 4
+                color, marker = S[idx], f"arr{idx}"
+            else:  # AG: neutral color, arrows just move already-finished shards
+                idx, color, marker = None, GLOW, "arr"
+            x0, y0 = polar(ccx, ccy, RING_R, a0)
+            x1, y1 = polar(ccx, ccy, RING_R, a1)
+            out += (f'<path d="M {x0:.1f} {y0:.1f} A {RING_R},{RING_R} 0 0,1 {x1:.1f} {y1:.1f}" '
+                    f'fill="none" stroke="{color}" stroke-width="1.5" opacity="0.9" '
+                    f'marker-end="url(#{marker})"/>\n')
+            if idx is not None:
+                mx, my = polar(ccx, ccy, RING_R, (a0 + a1) / 2)
+                out += flying_chip(mx, my, color, idx, size=13)
+    for k in range(4):
+        just_updated = (k - rs_step) % 4 if isinstance(rs_step, int) else None
+        out += ring_node(ccx, ccy, k, cnt[k], just_updated)
+    return out
+
+
 def fig2():
-    """Ring all-reduce state evolution: rows = steps, columns = 4 GPUs.
-    Chip brightness = number of terms accumulated in that shard. Sigma = all 4 terms present.
-    During reduce-scatter, each of the 4 links in a step carries a DIFFERENT shard; arrows and
-    the in-flight marker are colored (and numbered) to match the shard/column they carry, and the
-    receiving chip gets a colored ring + "+" once it has just been added into."""
-    W, H = 960, 730
+    """Ring all-reduce state evolution: 5 small-multiple rings (t=0, RS1-3, AG).
+    Each panel is the literal ring topology: G0/G1/G2/G3 at 12/3/6/9 o'clock, arcs flow
+    clockwise. Chip brightness = terms accumulated; Sigma = all 4 terms present. During
+    reduce-scatter every arc carries a DIFFERENT shard, colored/numbered to match the
+    column it lands in, and that slot gets a matching ring + "+" on arrival."""
+    W, H = 1060, 440
     s = svg_open(W, H)
     s += per_shard_markers()
-    s += text(W / 2, 30, "Ring All-Reduce, step by step (N = 4)", 17, TEXT, weight="bold")
-    s += text(W / 2, 50, "each cell: the 4 shard-slots on one GPU &#183; brightness = how many of the 4 terms are accumulated", 11.5, TEXT2)
+    s += text(W / 2, 28, "Ring All-Reduce, step by step (N = 4)", 17, TEXT, weight="bold")
+    s += text(W / 2, 47, "G0/G1/G2/G3 sit clockwise at 12/3/6/9 o&#8217;clock &#183; brightness = how many of the 4 terms are accumulated", 11, TEXT2)
 
-    # legend: column position -> shard color/index (fixed across every box, every row)
-    s += text(W / 2, 68, "column position &#8594; shard index (same order in every box):", 10.5, TEXT2)
+    # legend: chip position -> shard color/index (same order inside every node, every panel)
+    s += text(W / 2, 63, "chip position &#8594; shard index (same order in every box):", 10.5, TEXT2)
     leg_x0 = W / 2 - (4 * 40) / 2 + 10
     for j in range(4):
-        lx = leg_x0 + j * 40
-        s += flying_chip(lx, 80, S[j], j)
+        s += flying_chip(leg_x0 + j * 40, 74, S[j], j)
+
+    # worked example: RS is a real addition, not just a move. Spells out the very first
+    # hop (RS step 1, G0 -> G1) with the actual +/= signs and the actual chip visuals.
+    # Text widths are estimated generously (monospace advance ~0.65em + padding) so tokens
+    # never collide regardless of exact string length.
+    def mono_w(txt, size, pad=16):
+        return len(txt) * size * 0.65 + pad
+
+    s += text(W / 2, 96, "every hop is a real addition &#8212; worked example, RS step 1, G0&#8594;G1:", 10.5, TEXT2)
+    eq_own, eq_arr, eq_res = "own share (1 term)", "shard 0 arrives from G0", "now 2 of 4 terms summed"
+    s += inline_row(W / 2, 116, [
+        {"kind": "chip", "w": 18, "size": 11, "color": S[0], "op": 0.30},
+        {"kind": "text", "w": mono_w(eq_own, 9), "s": eq_own, "size": 9},
+        {"kind": "text", "w": 22, "s": "+", "size": 13, "fill": TEXT, "weight": "bold"},
+        {"kind": "chip", "w": 28, "size": 15, "color": S[0], "op": 1.0, "glyph": "0", "gsize": 9},
+        {"kind": "text", "w": mono_w(eq_arr, 9), "s": eq_arr, "size": 9},
+        {"kind": "text", "w": 22, "s": "=", "size": 13, "fill": TEXT, "weight": "bold"},
+        {"kind": "chip", "w": 18, "size": 11, "color": S[0], "op": 0.55, "ring": True, "glyph": "+", "gsize": 7.5},
+        {"kind": "text", "w": mono_w(eq_res, 9), "s": eq_res, "size": 9},
+    ])
 
     # accumulated counts per (step, rank, chunk)
     # phase 1: reduce-scatter around the ring; phase 2: all-gather
@@ -214,81 +322,39 @@ def fig2():
                 cnt[k][((k - t) + 1) % 4] = 4
         return cnt
 
-    rows = [
-        ("t = 0  (initial)", rs_counts(0), None,
-         "every rank holds its own full gradient, 4 shards &#215; S/4"),
+    panels = [
+        ("t = 0", rs_counts(0), None,
+         "holds its own gradient share"),
         ("RS step 1", rs_counts(1), 1,
-         "colored arrow = the shard it carries &#183; same-numbered slot lights up (+) on arrival"),
+         "colored arc = shard carried"),
         ("RS step 2", rs_counts(2), 2,
-         "same rule, one hop further &#183; partial sums keep travelling clockwise"),
+         "one hop further, clockwise"),
         ("RS step 3", rs_counts(3), 3,
-         "last hop completes the sum &#183; each rank now owns ONE fully-summed shard (&#931;)"),
-        ("AG step 1-3", ag_counts(3), "ag",
-         "3 more hops per link, pure data movement (no more +) &#183; every rank ends with all 4 &#931; shards"),
+         "each rank owns one full shard"),
+        ("AG steps 1&#8211;3", ag_counts(3), "ag",
+         "pure data move, no more +"),
     ]
 
-    x0, y0 = 150, 108
-    CW, RH = 180, 108
-    for k in range(4):
-        s += text(x0 + k * CW + 48, y0 - 6, f"GPU {k}", 12, TEXT2)
-    for r, (label, cnt, rs_step, note) in enumerate(rows):
-        y = y0 + r * RH + 12
-        s += text(18, y + 32, label, 12, GLOW, "start", weight="bold")
-        for k in range(4):
-            bx = x0 + k * CW
-            s += gpu_box(bx, y, w=96, h=58, label=f"G{k}")
-            just_updated = (k - rs_step) % 4 if isinstance(rs_step, int) else None
-            for j in range(4):
-                n = cnt[k][j]
-                full = n == 4
-                op = {1: 0.30, 2: 0.55, 3: 0.8, 4: 1.0}[n]
-                cx = bx + 8 + j * 21
-                if full:
-                    extra = f' stroke="{TEXT}" stroke-width="1.4"'
-                elif j == just_updated:
-                    extra = f' stroke="{S[j]}" stroke-width="1.8"'
-                else:
-                    extra = ""
-                s += (f'<rect x="{cx}" y="{y + 26}" width="18" height="18" rx="3" '
-                      f'fill="{S[j]}" opacity="{op}"{extra}/>\n')
-                if full:
-                    s += text(cx + 9, y + 26 + 13.5, "&#931;", 11, "#0b0f19", weight="bold")
-                elif j == just_updated:
-                    s += text(cx + 9, y + 26 + 13.5, "+", 11, "#0b0f19", weight="bold")
-        # ring arrows between columns (except the initial-state row)
-        if rs_step is not None:
-            for k in range(4):
-                b = (k + 1) % 4
-                x_from = x0 + k * CW + 96
-                x_to = x0 + b * CW
-                if isinstance(rs_step, int):
-                    idx = (b - rs_step) % 4
-                    color, marker = S[idx], f"arr{idx}"
-                else:  # AG: neutral color, arrows just move already-finished shards
-                    idx, color, marker = None, GLOW, "arr"
-                if k < 3:
-                    s += arrow(x_from + 4, y + 29, x_to - 6, y + 29, color=color, marker=marker, width=1.3)
-                    if idx is not None:
-                        s += flying_chip((x_from + 4 + x_to - 6) / 2, y + 29, color, idx)
-                else:
-                    # wrap-around arrow, drawn as a curve above the row
-                    p0 = (x_from + 4, y + 8)
-                    p1 = (x0 + 3 * CW + 150, y - 16)
-                    p2 = (x0 - 40, y - 16)
-                    p3 = (x0 - 4, y + 20)
-                    s += (f'<path d="M {p0[0]} {p0[1]} C {p1[0]} {p1[1]}, {p2[0]} {p2[1]}, {p3[0]} {p3[1]}" '
-                          f'fill="none" stroke="{color}" stroke-width="1.3" marker-end="url(#{marker})" opacity="0.85"/>\n')
-                    if idx is not None:
-                        mx, my = bezier_point(0.5, p0, p1, p2, p3)
-                        s += flying_chip(mx, my, color, idx)
-        s += text(x0 + 2 * CW - 45, y + 84, note, 10.5, TEXT2)
+    n = len(panels)
+    margin = 20
+    pitch = (W - 2 * margin) / n
+    ccy = 245
+    for i, (title, cnt, rs_step, note) in enumerate(panels):
+        ccx = margin + pitch / 2 + i * pitch
+        s += ring_panel(ccx, ccy, cnt, rs_step, title)
+        s += text(ccx, ccy + RING_R + NODE_H / 2 + 24, note, 9, TEXT2)
+        if i > 0:
+            s += (f'<line x1="{margin + i * pitch:.1f}" y1="{ccy - RING_R - 6}" '
+                  f'x2="{margin + i * pitch:.1f}" y2="{ccy + RING_R + 30}" '
+                  f'stroke="rgba(122,136,153,0.18)" stroke-width="1"/>\n')
 
     # bottom ledger
-    yb = y0 + 5 * RH + 26
-    s += (f'<rect x="120" y="{yb}" width="720" height="52" rx="8" fill="{SURFACE2}" '
+    yb = ccy + RING_R + NODE_H / 2 + 44
+    lw = W - 2 * 120
+    s += (f'<rect x="120" y="{yb}" width="{lw}" height="52" rx="8" fill="{SURFACE2}" '
           f'stroke="rgba(0,200,255,0.25)"/>\n')
-    s += text(480, yb + 21, "bytes sent per GPU = (N&#8722;1)&#183;S/N (reduce-scatter) + (N&#8722;1)&#183;S/N (all-gather)", 12.5, TEXT)
-    s += text(480, yb + 40, "= 2(N&#8722;1)/N &#183; S &#8776; 2S", 13.5, GLOW, weight="bold")
+    s += text(W / 2, yb + 21, "bytes sent per GPU = (N&#8722;1)&#183;S/N (reduce-scatter) + (N&#8722;1)&#183;S/N (all-gather)", 12.5, TEXT)
+    s += text(W / 2, yb + 40, "= 2(N&#8722;1)/N &#183; S &#8776; 2S", 13.5, GLOW, weight="bold")
     s += "</svg>\n"
     return s
 
