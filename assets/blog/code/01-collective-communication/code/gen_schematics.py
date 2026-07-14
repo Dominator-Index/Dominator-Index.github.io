@@ -33,6 +33,17 @@ def svg_open(w, h):
             f'<rect width="{w}" height="{h}" fill="{SURFACE}"/>\n')
 
 
+def per_shard_markers():
+    """Extra <marker> defs, one per shard color, so ring-diagram arrows can be color-coded."""
+    out = "<defs>\n"
+    for i, c in enumerate(S):
+        out += (f'<marker id="arr{i}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" '
+                f'markerHeight="7" orient="auto-start-reverse">'
+                f'<path d="M0,0 L10,5 L0,10 z" fill="{c}"/></marker>\n')
+    out += "</defs>\n"
+    return out
+
+
 def text(x, y, s, size=13, fill=TEXT, anchor="middle", weight="normal", family=None):
     f = f' font-family="{family}"' if family else ""
     return (f'<text x="{x}" y="{y}" font-size="{size}" fill="{fill}" '
@@ -54,12 +65,30 @@ def chip(x, y, color, w=18, h=18, sigma=False, dim=False):
     return s
 
 
-def arrow(x1, y1, x2, y2, dash=False, width=1.6):
+def arrow(x1, y1, x2, y2, color=GLOW, marker="arr", dash=False, width=1.6):
     d = ' stroke-dasharray="5,4"' if dash else ""
-    halo = (f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="{GLOW}" '
+    halo = (f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="{color}" '
             f'stroke-width="{width * 3}" opacity="0.22" stroke-linecap="round"/>\n')
-    return halo + (f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="{GLOW}" '
-                   f'stroke-width="{width}" marker-end="url(#arr)"{d}/>\n')
+    return halo + (f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="{color}" '
+                   f'stroke-width="{width}" marker-end="url(#{marker})"{d}/>\n')
+
+
+def bezier_point(t, p0, p1, p2, p3):
+    """Point at parameter t on a cubic Bezier defined by 4 (x, y) control points."""
+    mt = 1 - t
+    x = mt**3 * p0[0] + 3 * mt**2 * t * p1[0] + 3 * mt * t**2 * p2[0] + t**3 * p3[0]
+    y = mt**3 * p0[1] + 3 * mt**2 * t * p1[1] + 3 * mt * t**2 * p2[1] + t**3 * p3[1]
+    return x, y
+
+
+def flying_chip(cx, cy, color, idx, size=15):
+    """A small in-flight shard marker: color-matched square with its index, for arrow midpoints."""
+    half = size / 2
+    out = (f'<rect x="{cx - half - 2}" y="{cy - half - 2}" width="{size + 4}" height="{size + 4}" '
+           f'rx="4" fill="{SURFACE}"/>\n')
+    out += f'<rect x="{cx - half}" y="{cy - half}" width="{size}" height="{size}" rx="3" fill="{color}"/>\n'
+    out += text(cx, cy + 3.8, str(idx), 10, "#0b0f19", weight="bold")
+    return out
 
 
 # ---------------------------------------------------------------- fig 1
@@ -145,11 +174,22 @@ def fig1():
 # ---------------------------------------------------------------- fig 2
 def fig2():
     """Ring all-reduce state evolution: rows = steps, columns = 4 GPUs.
-    Chip brightness = number of terms accumulated in that shard. Sigma = all 4 terms present."""
-    W, H = 960, 700
+    Chip brightness = number of terms accumulated in that shard. Sigma = all 4 terms present.
+    During reduce-scatter, each of the 4 links in a step carries a DIFFERENT shard; arrows and
+    the in-flight marker are colored (and numbered) to match the shard/column they carry, and the
+    receiving chip gets a colored ring + "+" once it has just been added into."""
+    W, H = 960, 730
     s = svg_open(W, H)
+    s += per_shard_markers()
     s += text(W / 2, 30, "Ring All-Reduce, step by step (N = 4)", 17, TEXT, weight="bold")
     s += text(W / 2, 50, "each cell: the 4 shard-slots on one GPU &#183; brightness = how many of the 4 terms are accumulated", 11.5, TEXT2)
+
+    # legend: column position -> shard color/index (fixed across every box, every row)
+    s += text(W / 2, 68, "column position &#8594; shard index (same order in every box):", 10.5, TEXT2)
+    leg_x0 = W / 2 - (4 * 40) / 2 + 10
+    for j in range(4):
+        lx = leg_x0 + j * 40
+        s += flying_chip(lx, 80, S[j], j)
 
     # accumulated counts per (step, rank, chunk)
     # phase 1: reduce-scatter around the ring; phase 2: all-gather
@@ -175,45 +215,72 @@ def fig2():
         return cnt
 
     rows = [
-        ("t = 0  (initial)", rs_counts(0), "every rank holds its own full gradient, 4 shards &#215; S/4"),
-        ("RS step 1", rs_counts(1), "send shard, add into what arrives &#183; S/4 bytes on each link"),
-        ("RS step 2", rs_counts(2), "partial sums keep travelling clockwise"),
-        ("RS step 3", rs_counts(3), "each rank now owns ONE fully-summed shard"),
-        ("AG step 1-3", ag_counts(3), "the finished shards travel once around &#183; 3 more sends of S/4"),
+        ("t = 0  (initial)", rs_counts(0), None,
+         "every rank holds its own full gradient, 4 shards &#215; S/4"),
+        ("RS step 1", rs_counts(1), 1,
+         "colored arrow = the shard it carries &#183; same-numbered slot lights up (+) on arrival"),
+        ("RS step 2", rs_counts(2), 2,
+         "same rule, one hop further &#183; partial sums keep travelling clockwise"),
+        ("RS step 3", rs_counts(3), 3,
+         "last hop completes the sum &#183; each rank now owns ONE fully-summed shard (&#931;)"),
+        ("AG step 1-3", ag_counts(3), "ag",
+         "3 more hops per link, pure data movement (no more +) &#183; every rank ends with all 4 &#931; shards"),
     ]
 
-    x0, y0 = 150, 78
+    x0, y0 = 150, 108
     CW, RH = 180, 108
     for k in range(4):
         s += text(x0 + k * CW + 48, y0 - 6, f"GPU {k}", 12, TEXT2)
-    for r, (label, cnt, note) in enumerate(rows):
+    for r, (label, cnt, rs_step, note) in enumerate(rows):
         y = y0 + r * RH + 12
         s += text(18, y + 32, label, 12, GLOW, "start", weight="bold")
-        s += text(18, y + 48, "", 10, TEXT2, "start")
         for k in range(4):
             bx = x0 + k * CW
             s += gpu_box(bx, y, w=96, h=58, label=f"G{k}")
+            just_updated = (k - rs_step) % 4 if isinstance(rs_step, int) else None
             for j in range(4):
                 n = cnt[k][j]
                 full = n == 4
                 op = {1: 0.30, 2: 0.55, 3: 0.8, 4: 1.0}[n]
                 cx = bx + 8 + j * 21
-                extra = f' stroke="{TEXT}" stroke-width="1.4"' if full else ""
+                if full:
+                    extra = f' stroke="{TEXT}" stroke-width="1.4"'
+                elif j == just_updated:
+                    extra = f' stroke="{S[j]}" stroke-width="1.8"'
+                else:
+                    extra = ""
                 s += (f'<rect x="{cx}" y="{y + 26}" width="18" height="18" rx="3" '
                       f'fill="{S[j]}" opacity="{op}"{extra}/>\n')
                 if full:
                     s += text(cx + 9, y + 26 + 13.5, "&#931;", 11, "#0b0f19", weight="bold")
-        # ring arrows between columns (except last annotation row uses same)
-        if r in (1, 2, 3, 4):
+                elif j == just_updated:
+                    s += text(cx + 9, y + 26 + 13.5, "+", 11, "#0b0f19", weight="bold")
+        # ring arrows between columns (except the initial-state row)
+        if rs_step is not None:
             for k in range(4):
+                b = (k + 1) % 4
                 x_from = x0 + k * CW + 96
-                x_to = x0 + ((k + 1) % 4) * CW
+                x_to = x0 + b * CW
+                if isinstance(rs_step, int):
+                    idx = (b - rs_step) % 4
+                    color, marker = S[idx], f"arr{idx}"
+                else:  # AG: neutral color, arrows just move already-finished shards
+                    idx, color, marker = None, GLOW, "arr"
                 if k < 3:
-                    s += arrow(x_from + 4, y + 29, x_to - 6, y + 29, width=1.3)
-            # wrap-around arrow drawn as curve above
-            s += (f'<path d="M {x0 + 3 * CW + 96 + 4} {y + 8} C {x0 + 3 * CW + 150} {y - 16}, '
-                  f'{x0 - 40} {y - 16}, {x0 - 4} {y + 20}" fill="none" stroke="{GLOW}" '
-                  f'stroke-width="1.3" marker-end="url(#arr)" opacity="0.8"/>\n')
+                    s += arrow(x_from + 4, y + 29, x_to - 6, y + 29, color=color, marker=marker, width=1.3)
+                    if idx is not None:
+                        s += flying_chip((x_from + 4 + x_to - 6) / 2, y + 29, color, idx)
+                else:
+                    # wrap-around arrow, drawn as a curve above the row
+                    p0 = (x_from + 4, y + 8)
+                    p1 = (x0 + 3 * CW + 150, y - 16)
+                    p2 = (x0 - 40, y - 16)
+                    p3 = (x0 - 4, y + 20)
+                    s += (f'<path d="M {p0[0]} {p0[1]} C {p1[0]} {p1[1]}, {p2[0]} {p2[1]}, {p3[0]} {p3[1]}" '
+                          f'fill="none" stroke="{color}" stroke-width="1.3" marker-end="url(#{marker})" opacity="0.85"/>\n')
+                    if idx is not None:
+                        mx, my = bezier_point(0.5, p0, p1, p2, p3)
+                        s += flying_chip(mx, my, color, idx)
         s += text(x0 + 2 * CW - 45, y + 84, note, 10.5, TEXT2)
 
     # bottom ledger
