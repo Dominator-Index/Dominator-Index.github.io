@@ -5,6 +5,6 @@ description: "arXiv 2026 · A unified meta-pipeline, LMO-driven four-axis geomet
 img: assets/img/projects/omniopt.png
 redirect: https://openraiser.github.io/OmniOpt
 github: https://github.com/OpenRaiser/OmniOpt
-importance: 4
+importance: 2
 category: research
 ---

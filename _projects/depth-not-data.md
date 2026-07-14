@@ -5,6 +5,6 @@ description: "ISIT 2026 (Strong Accept) · An analysis of Hessian spectral bifur
 img: assets/img/projects/depth.png
 redirect: https://dominator-index.github.io/Depth-Not-Data-Project-Page/
 github: https://github.com/Dominator-Index/ISIT2026-Depth
-importance: 2
+importance: 3
 category: research
 ---
