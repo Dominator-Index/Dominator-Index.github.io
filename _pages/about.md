@@ -3,7 +3,7 @@ layout: about
 title: About
 permalink: /
 subtitle: >
-  Junior Undergraduate, <a href="https://eee.sustech.edu.cn/">Dept. of Electrical and Electronic Engineering</a>, <a href="https://www.sustech.edu.cn/">Southern University of Science and Technology (SUSTech)</a>
+  Senior Undergraduate, <a href="https://eee.sustech.edu.cn/">Dept. of Electrical and Electronic Engineering</a>, <a href="https://www.sustech.edu.cn/">Southern University of Science and Technology (SUSTech)</a>
 
 profile:
   align: right
@@ -20,7 +20,7 @@ social: true
 qr_code: qr_website.png
 ---
 
-I am a third-year undergraduate at [SUSTech](https://www.sustech.edu.cn/), majoring in Electrical and Electronic Engineering. I began in the **Fields Elite Honor Class** at the [Department of Mathematics](https://math.sustech.edu.cn/), where early immersion in rigorous proof and foundational theory fundamentally shaped my research philosophy.
+I am a fourth-year undergraduate at [SUSTech](https://www.sustech.edu.cn/), majoring in Electrical and Electronic Engineering. I began in the **Fields Elite Honor Class** at the [Department of Mathematics](https://math.sustech.edu.cn/), where early immersion in rigorous proof and foundational theory fundamentally shaped my research philosophy.
 
 **I am dedicated to revitalizing centuries of profound mathematical brilliance within the AI era.** Rather than chasing empirical efficiency alone, my mission is to bridge the legacy of classical theory with the frontiers of modern intelligence — grounding AI in rigorous, enduring paradigms and opening new theoretical insights.
 
