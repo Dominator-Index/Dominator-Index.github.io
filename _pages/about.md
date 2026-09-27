@@ -35,4 +35,4 @@ I am currently **seeking PhD positions (2027 Fall)**. Feel free to reach out!
 - ISIT 2026 <span style="color:#c0392b; font-weight:bold;">Strong Accept</span>
 - DATE 2026 <span style="color:#c0392b; font-weight:bold;">Oral Paper</span>
 - <span style="color:#b8860b; font-weight:bold;">Fields Elite Honor Class</span> (Top 1%), SUSTech
-- Rank <span style="color:#b8860b; font-weight:bold;">4/46</span> in EEE, <span style="color:#b8860b; font-weight:bold;">Top 7%</span> overall (GPA <span style="color:#b8860b; font-weight:bold;">3.94</span>/4.00 last year)
+- Rank <span style="color:#b8860b; font-weight:bold;">6/48</span> in EEE, cumulative GPA <span style="color:#b8860b; font-weight:bold;">3.88</span>/4.00
